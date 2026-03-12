@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <!-- Firebase SDK -->
     <script type="module">
@@ -1083,7 +1084,34 @@
             }
             
             // Recommendation
-            html += `<p class="text-indigo-300 mt-4"><strong>Punto de partida sugerido:</strong> Explorar la dimensión de ${getWeakestDimension(rec.scores)} y trabajar la brecha en ${priority}.</p>`;
+            html += `<p class="text-indigo-300 mt-4 border-b border-slate-700/50 pb-4"><strong>Punto de partida sugerido:</strong> Explorar la dimensión de ${getWeakestDimension(rec.scores)} y trabajar la brecha en ${priority}.</p>`;
+            
+            // Algorithmic details toggle breakdown
+            html += `
+            <details class="mt-4 bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 group cursor-pointer text-sm transition-colors open:bg-slate-800/60 hover:border-indigo-500/30">
+                <summary class="list-none font-medium text-indigo-300 outline-none flex items-center justify-between">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Ver detalle clínico y algoritmo de fórmulas
+                    </span>
+                    <span class="text-slate-500 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <div class="mt-4 pt-4 border-t border-slate-700/60 text-slate-400 leading-relaxed text-xs space-y-4">
+                    <div>
+                        <strong class="text-slate-200">1. Cálculo de IBFI Global:</strong>
+                        <p class="mt-1">Promedio ponderado de las 5 dimensiones. Las preguntas de formulación negativa (escala 1 a 4) son invertidas numéricamente antes del cálculo para validar la consistencia psicométrica de la prueba y evitar sesgos cognitivos del consultante. <strong>El promedio actual es ${ibfi.toFixed(2)} sobre 4.0.</strong></p>
+                    </div>
+                    <div>
+                        <strong class="text-slate-200">2. Mapeo Axiomático (Tensión: ${maxGap}):</strong>
+                        <p class="mt-1">El valor de jerarquía prioritario (<strong>${priority}</strong>) es detectado al calcular la diferencia más alta (brecha) entre la <em>Importancia Ideal</em> y su <em>Presencia Activa</em> reportadas. Una brecha alta señala una inminente área de necesidad existencial.</p>
+                    </div>
+                    <div>
+                        <strong class="text-slate-200">3. Fusión Diagnóstica:</strong>
+                        <p class="mt-1">Para generar un balance sistémico ágil, la ruta terapéutica empareja la dimensión psicométrica más frágil (<strong>${getWeakestDimension(rec.scores)}</strong>) estableciéndola como la puerta de entrada clínica para restablecer la paz respecto al valor vulnerado del paciente (<strong>${priority}</strong>).</p>
+                    </div>
+                </div>
+            </details>
+            `;
             
             document.getElementById('interpretation-text').innerHTML = html;
         }
@@ -1097,6 +1125,70 @@
                 { id: 's5', name: 'Reflexividad' }
             ];
             return dims.reduce((min, dim) => scores[dim.id] < scores[min.id] ? dim : min, dims[0]).name;
+        }
+
+        function getDimensionDiagnosis(id, score) {
+            const dict = {
+                's1': {
+                    high: 'Alta capacidad estoica, regulación emocional efectiva, sólido desapego funcional ante variables incontrolables de la vida.',
+                    med: 'Variabilidad en la respuesta al estrés. Reactividad en picos ante estímulos fuertes, pero con capacidad para recuperar el centro logrando la calma.',
+                    low: 'Vulnerabilidad y agotamiento ante la incertidumbre. Frecuente hipersensibilidad a factores externos provocando sufrimiento no estructural.'
+                },
+                's2': {
+                    high: 'Identidad congruente; experimentando amplia "libertad existencial" asumiendo la responsabilidad incondicional de su propia vida.',
+                    med: 'Actualmente en búsqueda o reestructuración activa. Siente e identifica la disonancia entre las exigencias externas y las de sí mismo.',
+                    low: 'Potencial de vacío existencial (crisis de sentido). Riesgo latente de evitación conductual o letargo ante las decisiones sobre su biografía.'
+                },
+                's3': {
+                    high: 'Adecuada resistencia a la contemporánea "sociedad del rendimiento". El sujeto tiene un sistema para separarse del burnout de forma asertiva.',
+                    med: 'Indicios incipientes de auto-explotación. Siente episodios de culpa cuando detiene la máquina o cree no ser "suficientemente productivo".',
+                    low: 'Alienación por hiper-productividad/consumo de información. Sentimientos donde el valor humano se ata excesivamente a sus resultados.'
+                },
+                's4': {
+                    high: 'Tejido social sano, nutricio y de reciprocidad. El paciente encuentra contención compasiva y profundiza resiliencia genuina frente al "Otro".',
+                    med: 'Vínculos condicionados o parcialmente utilitarios. Tendencias a no exponer toda la verdad y evadir la vulnerabilidad humana ante el resto.',
+                    low: 'Cosificación de relaciones o un extremo mecanismo de aislamiento. Posible desconfianza arraigada o impedimentos firmes para buscar auxilio.'
+                },
+                's5': {
+                    high: 'Nivel óptimo e incuestionable de auto-consciencia. Transforma sus valores en acciones concretas y es asertivo entre el decir y el obrar de sus días.',
+                    med: 'Presencia de zonas ciegas habituales de protección. Observa intermitencias entre el núcleo que prefiere íntimamente y los hábitos que tolera fuera.',
+                    low: 'Desconexión, lejanía y evasión del examen racional a su trayectoria. Tendencia a la automatización de rutinas que no se ajustan a él para inhibir preguntas.'
+                }
+            };
+            const tier = score >= 3.0 ? 'high' : score >= 2.3 ? 'med' : 'low';
+            return dict[id][tier];
+        }
+
+        function getDimensionStrategy(id, score) {
+            const strats = {
+                's1': {
+                    high: 'Brindar roles de integración donde ofrezca contención a otros de su ecosistema. Asignarle el cierre introspectivo o la auto-prescripción estoica.',
+                    med: 'Abordar rutinas de "Dicotomía del Control": categorizar lo que depende exclusivamente de su fuero interno versus sucesos aleatorios de la periferia.',
+                    low: 'TCC Inicial, entrenamiento acelerado en defusión para contener impulsos primarios y mapeo exhaustivo de pensamientos catastróficos encubiertos.'
+                },
+                's2': {
+                    high: 'Guiar el afianzamiento y su extensión participativa orientándolo fuertemente hacia la comunidad, un movimiento o desarrollo de algún propósito creativo.',
+                    med: 'Práctica socrática constante y aguda orientada a desmontar y aislar la red de mandatos limitantes sobre quién es él ("Lo que espera otro" vs "Lo que elijo yo").',
+                    low: 'Prácticas primarias de la Logoterapia de Viktor Frankl. Cuestionar y detonar recuerdos clave hasta resucitar alguna fibra que justifique profundamente la tarea.'
+                },
+                's3': {
+                    high: 'Sistematizar, validar y amplificar socialmente sus métodos defensivos naturales en favor de promover las dinámicas orgánicas de una filosofía del ocio vivo.',
+                    med: 'Abordaje profiláctico para impedir el declive funcional; desarrollar una matriz dura que califique la diferencia esencial entre su ocupación y una auto-explotación.',
+                    low: 'Reestructuración aguda; terapia donde se le prescriban innegociables bloques de una intencionada "tarea inútil y estéticamente formativa" donde se descalifique la meta.'
+                },
+                's4': {
+                    high: 'Optimizar en consulta dinámicas sobre habilidades para modular cuándo poner sus límites como forma final de cuidado ante los demás mitigando sobrecarga.',
+                    med: 'Incitación controlada al riesgo (micro-exposición clínica) hacia lugares de profunda vulnerabilidad para experimentar una genuina y segura red de receptividad afectiva.',
+                    low: 'Sesión integrativa muy pasiva e insistente de reparación social en donde la persona desmantele la profunda creencia defensiva de haber sido abandonada para siempre.'
+                },
+                's5': {
+                    high: 'Facilitar la síntesis de un relato autobiográfico sólido que le deje contemplar que hay hilos conductuales robustos y lógicos sosteniendo toda su existencia.',
+                    med: 'Uso obligatorio del método de la pluma; someter el uso del espacio de bitácora y la obligatoria necesidad por escrito de tener que fundamentar cualquier decisión relevante recién tomada.',
+                    low: 'Aplicación drástica del freno a los ritmos y detonar deliberadas interrupciones vitales en rutinas. Acelerarle forzados silencios en sesión para precipitar que deba notarse.'
+                }
+            };
+            const tier = score >= 3.0 ? 'high' : score >= 2.3 ? 'med' : 'low';
+            return strats[id][tier];
         }
 
         function renderSectionBreakdown(scores) {
@@ -1114,18 +1206,30 @@
                 const color = score >= 3 ? 'bg-emerald-500' : score >= 2.5 ? 'bg-lime-500' : score >= 2 ? 'bg-amber-500' : 'bg-rose-500';
                 
                 return `
-                    <div class="bg-slate-800/30 rounded-lg p-4 border border-slate-800">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <div class="font-medium text-white">${d.name}</div>
-                                <div class="text-xs text-slate-500">${d.sub}</div>
+                    <details class="bg-slate-800/30 rounded-xl border border-slate-700/60 p-4 group cursor-pointer transition-colors duration-300 hover:border-indigo-500/50 open:bg-slate-800/60 shadow-sm relative overflow-hidden">
+                        <summary class="list-none flex justify-between items-center outline-none">
+                            <div class="flex-1">
+                                <div class="font-medium text-white group-open:text-indigo-400 transition-colors flex items-center gap-2">
+                                    ${d.name} <span class="text-[10px] text-slate-500 group-open:rotate-180 transition-transform hidden md:inline-block">▼</span>
+                                </div>
+                                <div class="text-xs text-slate-500 mt-0.5">${d.sub}</div>
                             </div>
-                            <div class="text-xl font-bold text-${d.color}-400">${score.toFixed(2)}</div>
-                        </div>
-                        <div class="w-full bg-slate-700 rounded-full h-1.5">
+                            <div class="text-xl font-bold text-${d.color}-400 ml-4">${score.toFixed(2)}</div>
+                        </summary>
+                        <div class="w-full bg-slate-900 rounded-full h-1.5 mt-3 group-open:mb-4 overflow-hidden border border-slate-700/30 transition-all">
                             <div class="${color} h-1.5 rounded-full" style="width: ${pct}%"></div>
                         </div>
-                    </div>
+                        <div class="text-xs text-slate-300 pt-3 border-t border-slate-700/50 space-y-3 leading-relaxed opacity-0 group-open:opacity-100 transition-opacity">
+                            <div class="flex items-start gap-2">
+                                <span class="mt-0.5 shrink-0 w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                <div><strong class="text-indigo-300">Diagnóstico:</strong> ${getDimensionDiagnosis(d.id, score)}</div>
+                            </div>
+                            <div class="flex items-start gap-2">
+                                <span class="mt-0.5 shrink-0 w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                <div><strong class="text-emerald-300">Prescripción Terapéutica:</strong> ${getDimensionStrategy(d.id, score)}</div>
+                            </div>
+                        </div>
+                    </details>
                 `;
             }).join('');
         }
@@ -1168,33 +1272,63 @@
             a.click();
         }
 
-        function exportarUsuarioActual(fmt) {
+        async function exportarUsuarioActual() {
             if (!currentUserId) return;
             const rec = allRecords.find(r => r.id === currentUserId);
             if (!rec) return;
-            
-            // Simple PDF export
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            
-            doc.setFontSize(20);
-            doc.text('IBFI-C Pro - Informe', 105, 20, { align: 'center' });
-            
-            doc.setFontSize(12);
-            doc.text(`Paciente: ${rec.name}`, 20, 40);
-            doc.text(`IBFI Global: ${rec.ibfi.toFixed(2)}/4.0`, 20, 50);
-            doc.text(`Prioridad: ${rec.priorityValue}`, 20, 60);
-            
-            let y = 80;
-            doc.text('Dimensiones:', 20, y);
-            y += 10;
-            ['s1','s2','s3','s4','s5'].forEach((s, i) => {
-                const names = ['Serenidad','Autenticidad','Integración','Relacionalidad','Reflexividad'];
-                doc.text(`${names[i]}: ${rec.scores[s].toFixed(2)}`, 30, y);
-                y += 8;
+
+            // Indicar carga visual en el botón de la interfaz
+            const btnList = document.querySelectorAll(`button[onclick*="exportarUsuarioActual"]`);
+            btnList.forEach(btn => { 
+                btn.dataset.original = btn.innerHTML; 
+                btn.innerHTML = '⏳ Preparando PDF...'; 
+                btn.disabled = true; 
             });
-            
-            doc.save(`IBFI_${rec.name.replace(/\s+/g,'_')}.pdf`);
+
+            try {
+                // Seleccionamos todo el contenedor del dashboard directivo que queremos imprimir
+                const element = document.getElementById('admin-dashboard');
+                if(!element) throw new Error("Dashboard no detectado");
+
+                // Quitamos momentáneamente cualquier scrollbar interna para que html2canvas capture todo completo hacia abajo
+                const prevHeight = element.style.height;
+                const prevOverflow = element.style.overflow;
+                element.style.height = 'auto';
+                element.style.overflow = 'visible';
+
+                // Toma de captura del DOM (Renderización pixel a pixel)
+                const canvas = await html2canvas(element, {
+                    scale: 2, 
+                    useCORS: true,
+                    backgroundColor: '#0f172a' // slate-900
+                });
+
+                // Restaurar CSS a la normalidad
+                element.style.height = prevHeight;
+                element.style.overflow = prevOverflow;
+
+                const imgData = canvas.toDataURL('image/png');
+                const { jsPDF } = window.jspdf;
+                
+                // Generación de un PDF en formato vertical basándonos en la altura capturada automáticamente
+                const pdfWidth = 210; // Milímetros estándar vertical 
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                // Creación con un array personalizado de dimensiones
+                const pdf = new jsPDF('p', 'mm', [pdfWidth, pdfHeight]);
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(`IBFI_REPORTE_${rec.name.replace(/ /g, '_')}.pdf`);
+                
+            } catch (err) {
+                console.error("Error PDF:", err);
+                alert("Hubo un error al generar el PDF: " + err.message);
+            } finally {
+                // Restaurar botón siempre
+                btnList.forEach(btn => { 
+                    btn.innerHTML = btn.dataset.original; 
+                    btn.disabled = false; 
+                });
+            }
         }
 
         function recargarDatos() {
