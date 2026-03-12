@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBFI-C Pro | El Escuchante</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXLAZICs51N8v-zsm_GAaxfepeCcZdzQM",
+            authDomain: "el-escuchante.firebaseapp.com",
+            projectId: "el-escuchante",
+            storageBucket: "el-escuchante.firebasestorage.app",
+            messagingSenderId: "794056663818",
+            appId: "1:794056663818:web:b1e97875b8b922751d5c93",
+            measurementId: "G-2NVHDMN6D7"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        window.db = db;
+        window.firebaseCollections = { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, updateDoc };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * { font-family: 'Inter', sans-serif; }
+        
+        input[type="range"] { accent-color: #4f46e5; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #6366f1;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .gauge-container {
+            position: relative;
+            width: 280px;
+            height: 160px;
+            margin: 0 auto;
+        }
+        
+        .gauge-bg {
+            fill: none;
+            stroke: #1e293b;
+            stroke-width: 20;
+        }
+        
+        .gauge-fill {
+            fill: none;
+            stroke-width: 20;
+            stroke-linecap: round;
+            transition: stroke-dasharray 1s ease;
+        }
+        
+        .tab-active {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(79, 70, 229, 0.4);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .new-record {
+            animation: pulse-green 2s infinite;
+            border-color: #10b981 !important;
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        }
+        
+        .section-transition {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <!-- USER INTERFACE -->
+    <div id="user-app" class="max-w-4xl mx-auto px-6 py-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <div class="inline-block mb-4">
+                <div class="w-16 h-16 mx-auto bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-500/30">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                </div>
+            </div>
+            <h1 class="text-4xl font-bold mb-2 tracking-tight">El Escuchante</h1>
+            <p class="text-slate-400 text-lg">Instrumento de Bienestar Filosófico Integral</p>
+            <p class="text-slate-500 text-sm mt-1">Exploración filosófica estructurada del bienestar existencial</p>
+            
+            <!-- Admin Access (Hidden) -->
+            <div onclick="abrirAdmin()" class="fixed top-4 right-4 w-8 h-8 rounded-full bg-slate-800/50 hover:bg-indigo-600/50 cursor-pointer transition flex items-center justify-center opacity-0 hover:opacity-100" title="Acceso Directivo">
+                <span class="text-xs font-bold">D</span>
+            </div>
+        </header>
+
+        <!-- Step 1: Registration -->
+        <section id="step-registration" class="section-transition">
+            <div class="bg-slate-900/50 backdrop-blur border border-slate-800 rounded-3xl p-8 shadow-2xl">
+                <h2 class="text-2xl font-semibold mb-6 text-indigo-300">Información del Consultante</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-2">Nombre Completo *</label>
+                        <input type="text" id="user-name" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition" placeholder="Ej: María González">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-2">Edad *</label>
+                        <input type="number" id="user-age" min="18" max="120" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition" placeholder="Ej: 34">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-400 mb-2">Profesión / Ocupación *</label>
+                        <input type="text" id="user-prof" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition" placeholder="Ej: Psicóloga">
+                    </div>
+                </div>
+
+                <div class="bg-indigo-900/20 border border-indigo-500/20 rounded-2xl p-6 mb-8">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-indigo-300 mb-2">Confidencialidad Profesional</h3>
+                            <p class="text-slate-400 text-sm leading-relaxed">
+                                Este instrumento es una herramienta de exploración filosófica. Los resultados serán 
+                                analizados exclusivamente por su consultante en <strong>"El Escuchante"</strong>.
+                            </p>
+                            <label class="flex items-center mt-4 cursor-pointer">
+                                <input type="checkbox" id="user-consent" class="w-5 h-5 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500 bg-slate-800">
+                                <span class="ml-3 text-sm text-slate-300">Acepto los términos de confidencialidad *</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="iniciarTest()" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold py-4 rounded-xl shadow-lg shadow-indigo-500/25 transition transform hover:scale-[1.02]">
+                    Comenzar Evaluación
+                </button>
+            </div>
+        </section>
+
+        <!-- Step 2: Test -->
+        <section id="step-instrument" class="hidden section-transition">
+            <!-- Progress -->
+            <div class="mb-6">
+                <div class="flex justify-between text-sm text-slate-400 mb-2">
+                    <span>Progreso</span>
+                    <span id="progress-text">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-2">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-violet-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <form id="instrument-form" onsubmit="enviarResultados(event)">
+                <div id="questions-container" class="space-y-8"></div>
+                
+                <div class="mt-8 text-center">
+                    <button type="submit" id="btn-enviar" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-4 px-12 rounded-xl shadow-lg shadow-emerald-500/25 transition transform hover:scale-[1.02] inline-flex items-center gap-2">
+                        <span>Finalizar y Enviar</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Step 3: Confirmation -->
+        <section id="step-thanks" class="hidden section-transition text-center py-12">
+            <div class="w-20 h-20 mx-auto bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
+                <svg class="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold mb-4">Evaluación Completada</h2>
+            <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 max-w-md mx-auto mb-6">
+                <p class="text-slate-400 text-sm mb-2">Código de Confirmación</p>
+                <p class="text-4xl font-mono font-bold text-emerald-400 tracking-wider" id="confirm-code">---</p>
+            </div>
+            <p class="text-slate-400 max-w-lg mx-auto mb-8">
+                Sus respuestas han sido procesadas. Su consultante recibirá los resultados 
+                y los analizará durante su sesión de retroalimentación.
+            </p>
+            <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 px-8 rounded-xl transition border border-slate-700">
+                Finalizar
+            </button>
+        </section>
+
+        <!-- Loading -->
+        <section id="step-loading" class="hidden text-center py-20">
+            <div class="spinner mx-auto mb-4"></div>
+            <p class="text-slate-400">Procesando evaluación...</p>
+        </section>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="admin-panel" class="hidden min-h-screen bg-slate-950">
+        <div class="max-w-7xl mx-auto p-6">
+            
+            <!-- Admin Header -->
+            <header class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-2xl font-bold gradient-text">Panel Directivo | IBFI-C Pro</h1>
+                    <p class="text-slate-500 text-sm">Sistema de Análisis Filosófico</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="recargarDatos()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg transition border border-slate-700 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Actualizar
+                    </button>
+                    <button onclick="exportarTodosDatos()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg transition border border-slate-700">
+                        Exportar JSON
+                    </button>
+                    <button onclick="cerrarAdmin()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg transition border border-slate-700">
+                        Cerrar
+                    </button>
+                </div>
+            </header>
+
+            <!-- Connection Status -->
+            <div id="firebase-status" class="bg-slate-900 border border-slate-800 rounded-lg p-3 mb-6 flex items-center gap-3">
+                <div class="w-2 h-2 rounded-full bg-yellow-500" id="status-dot"></div>
+                <span class="text-sm text-slate-400" id="status-text">Conectando...</span>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- Sidebar: Records List -->
+                <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                    <div class="p-4 border-b border-slate-800 bg-slate-900/50">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-semibold text-slate-300">Expedientes</h3>
+                            <span id="total-expedientes" class="bg-indigo-600 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <input type="text" id="search-input" placeholder="Buscar..." class="w-full mt-3 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 focus:border-indigo-500 outline-none" oninput="filtrarUsuarios()">
+                    </div>
+                    <div id="admin-users-list" class="max-h-[calc(100vh-300px)] overflow-y-auto p-3 space-y-2"></div>
+                </div>
+
+                <!-- Main Dashboard -->
+                <div class="lg:col-span-3">
+                    
+                    <!-- Empty State -->
+                    <div id="admin-empty-state" class="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+                        <svg class="w-16 h-16 mx-auto text-slate-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <p class="text-slate-500">Seleccione un consultante para ver el análisis</p>
+                    </div>
+
+                    <!-- Dashboard Content -->
+                    <div id="admin-dashboard" class="hidden space-y-6">
+                        
+                        <!-- Patient Header -->
+                        <div class="bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h2 class="text-2xl font-bold text-white" id="dash-name"></h2>
+                                <p class="text-slate-400 text-sm mt-1">
+                                    <span id="dash-age"></span> años · <span id="dash-prof"></span>
+                                </p>
+                                <p class="text-indigo-400 text-xs font-mono mt-1" id="dash-code"></p>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="marcarRetroalimentado()" id="btn-retro" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30 px-4 py-2 rounded-lg text-sm transition">
+                                    ✓ Marcar Retroalimentado
+                                </button>
+                                <button onclick="exportarUsuarioActual('pdf')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition">
+                                    📄 PDF
+                                </button>
+                                <button onclick="eliminarExpediente()" class="bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-600/30 px-4 py-2 rounded-lg text-sm transition">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE 1: IBFI Global Gauge -->
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 card-hover">
+                            <h3 class="text-lg font-semibold text-slate-300 mb-4 text-center">Bienestar Filosófico Global</h3>
+                            <div class="gauge-container">
+                                <svg viewBox="0 0 280 160" class="w-full h-full">
+                                    <path d="M 40 140 A 100 100 0 0 1 240 140" class="gauge-bg"/>
+                                    <path id="gauge-arc" d="M 40 140 A 100 100 0 0 1 240 140" class="gauge-fill" stroke="url(#gaugeGradient)" stroke-dasharray="314" stroke-dashoffset="314"/>
+                                    <defs>
+                                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                            <stop offset="0%" style="stop-color:#ef4444"/>
+                                            <stop offset="50%" style="stop-color:#f59e0b"/>
+                                            <stop offset="100%" style="stop-color:#10b981"/>
+                                        </linearGradient>
+                                    </defs>
+                                    <text x="140" y="130" text-anchor="middle" class="text-4xl font-bold fill-white" id="gauge-value">0.0</text>
+                                    <text x="140" y="150" text-anchor="middle" class="text-sm fill-slate-500">de 4.0</text>
+                                </svg>
+                            </div>
+                            <div class="text-center mt-4">
+                                <span id="ibfi-interpretation" class="inline-block px-4 py-2 rounded-full text-sm font-medium bg-slate-800 text-slate-300"></span>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE 2 & 3: Radar + Profile -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Radar Chart -->
+                            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 card-hover">
+                                <h3 class="text-lg font-semibold text-slate-300 mb-4">Mapa de Dimensiones</h3>
+                                <div class="h-[300px]">
+                                    <canvas id="radarChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Profile Card -->
+                            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 card-hover">
+                                <h3 class="text-lg font-semibold text-slate-300 mb-4">Perfil Existencial</h3>
+                                <div id="profile-card" class="text-center py-8">
+                                    <div id="profile-icon" class="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-3xl mb-4"></div>
+                                    <h4 id="profile-name" class="text-2xl font-bold text-white mb-2"></h4>
+                                    <p id="profile-desc" class="text-slate-400 text-sm leading-relaxed px-4"></p>
+                                </div>
+                                <div class="mt-6 pt-6 border-t border-slate-800">
+                                    <h4 class="text-sm font-medium text-slate-400 mb-3">Indicadores Clave</h4>
+                                    <div id="profile-indicators" class="space-y-2 text-sm"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE 4: Values Map -->
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 card-hover">
+                            <h3 class="text-lg font-semibold text-slate-300 mb-4">Mapa Axiomático - Jerarquía de Valores</h3>
+                            <p class="text-slate-500 text-sm mb-6">Comparación entre importancia atribuida y presencia percibida</p>
+                            <div id="values-chart-container" class="space-y-4"></div>
+                        </div>
+
+                        <!-- BLOQUE 5: Interpretation -->
+                        <div class="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-800 rounded-2xl p-6 card-hover">
+                            <h3 class="text-lg font-semibold text-indigo-300 mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                                </svg>
+                                Síntesis Interpretativa
+                            </h3>
+                            <div id="interpretation-text" class="text-slate-300 leading-relaxed space-y-4"></div>
+                        </div>
+
+                        <!-- Section Details -->
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                            <h3 class="text-lg font-semibold text-slate-300 mb-4">Desglose por Dimensiones</h3>
+                            <div id="section-breakdown" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        </div>
+
+                        <!-- Final Reflection -->
+                        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                            <h3 class="text-lg font-semibold text-slate-300 mb-4">Reflexión Final del Consultante</h3>
+                            <div class="bg-slate-800/50 rounded-xl p-6 border-l-4 border-indigo-500">
+                                <p id="final-reflection" class="text-slate-300 italic font-serif text-lg leading-relaxed"></p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6">
+            <h2 class="text-xl font-bold text-white mb-4">Configuración Requerida</h2>
+            <p class="text-slate-400 mb-4">Firebase no está configurado correctamente.</p>
+            <button onclick="cerrarSetupModal()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl transition">Entendido</button>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================
+        // IBFI-C PRO - INSTRUMENTO DE BIENESTAR FILOSÓFICO
+        // =====================================================
+
+        const IBFI_DATA = {
+            sections: [
+                {
+                    id: 's1',
+                    title: 'Serenidad y Fortaleza Interior',
+                    subtitle: 'Principios Helenísticos',
+                    color: 'blue',
+                    negativeIndices: [0, 1, 2, 6],
+                    questions: [
+                        "Me siento perturbado/a por acontecimientos que escapan a mi control.",
+                        "Mis emociones intensas (ira, tristeza, ansiedad) suelen nublar mi juicio.",
+                        "Siento que mi felicidad depende fundamentalmente de factores externos.",
+                        "Reflexiono sobre mis pensamientos y juicios para mantener la calma interior.",
+                        "Encuentro satisfacción en los placeres sencillos y en un estilo de vida moderado.",
+                        "Acepto con serenidad las dificultades y los reveses como parte natural de la vida.",
+                        "Siento que mi paz interior se ve fácilmente alterada por las acciones de los demás.",
+                        "Me enfoco en cultivar mi carácter y mis virtudes personales.",
+                        "Busco activamente momentos de tranquilidad y reflexión para liberarme de preocupaciones.",
+                        "Distingo con claridad entre los problemas que puedo solucionar y aquellos que debo aceptar."
+                    ]
+                },
+                {
+                    id: 's2',
+                    title: 'Autenticidad y Sentido Vital',
+                    subtitle: 'Principios Existencialistas',
+                    color: 'violet',
+                    negativeIndices: [0, 1, 2, 5, 7],
+                    questions: [
+                        "Siento que estoy viviendo una vida que no es verdaderamente mía.",
+                        "Experimento a menudo una sensación de vacío o falta de propósito.",
+                        "La libertad de tomar mis propias decisiones me genera una profunda ansiedad.",
+                        "Actúo de acuerdo con mis propios valores, incluso si va contra las expectativas sociales.",
+                        "Asumo plena responsabilidad por las elecciones que he tomado en mi vida.",
+                        "Me siento abrumado/a por la idea de que mi vida no tiene un significado inherente.",
+                        "Busco activamente crear mi propio sentido a través de mis acciones y compromisos.",
+                        "Siento que a menudo 'actúo un papel' para encajar o ser aceptado/a por los demás.",
+                        "A pesar de las dificultades, me siento comprometido/a con un proyecto de vida que he elegido.",
+                        "La conciencia de mi propia finitud me inspira a vivir de una manera más plena."
+                    ]
+                },
+                {
+                    id: 's3',
+                    title: 'Integración y Alienación Social',
+                    subtitle: 'Sociedad del Rendimiento',
+                    color: 'orange',
+                    negativeIndices: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                    questions: [
+                        "Siento una presión constante por ser más productivo/a y optimizar mi rendimiento.",
+                        "Mi valía personal está fuertemente ligada a mis logros, mi éxito y mi capacidad de consumo.",
+                        "Dudo que mi trabajo contribuya de forma significativa a la sociedad o a otros.",
+                        "Siento que debo ocultar partes de mí (dudas, vulnerabilidad) para encajar profesionalmente.",
+                        "Las fronteras entre mi vida laboral y personal son cada vez más difusas.",
+                        "Me siento culpable o ansioso/a cuando no estoy haciendo algo 'útil' o productivo.",
+                        "Siento que gran parte de mi trabajo consiste en tareas sin sentido o burocráticas.",
+                        "Siento una desconexión entre mi 'máscara' social y quién soy realmente.",
+                        "La velocidad y la cantidad de información que proceso a diario agotan mi energía mental.",
+                        "Busco una comprensión más profunda de mí mismo/a que integre mis dimensiones emocional, intelectual y espiritual."
+                    ]
+                },
+                {
+                    id: 's4',
+                    title: 'Relacionalidad, Cuidado y Reconocimiento',
+                    subtitle: 'Ética del Vínculo',
+                    color: 'emerald',
+                    negativeIndices: [1, 2, 4, 6],
+                    questions: [
+                        "Mis relaciones importantes son un refugio seguro donde puedo ser yo mismo/a.",
+                        "Siento que mis interacciones con los demás son superficiales o meramente funcionales.",
+                        "Me siento aislado/a o desconectado/a de una comunidad con la que comparta valores.",
+                        "Siento que mis capacidades y mi forma de ser son valoradas por mi entorno.",
+                        "Me cuesta pedir ayuda o mostrarme vulnerable ante los demás.",
+                        "Participo en el cuidado y bienestar de otros, y siento que este cuidado es recíproco.",
+                        "Siento que la competencia y la comparación constante dañan mis relaciones.",
+                        "Mi bienestar está profundamente conectado con la felicidad de las personas que amo.",
+                        "Siento que mi voz y mis opiniones son escuchadas y tenidas en cuenta.",
+                        "Dedico tiempo y energía de calidad a cultivar mis vínculos afectivos."
+                    ]
+                },
+                {
+                    id: 's5',
+                    title: 'Conciencia Reflexiva y Coherencia Personal',
+                    subtitle: 'Autoconocimiento',
+                    color: 'slate',
+                    negativeIndices: [4],
+                    questions: [
+                        "Dedico tiempo a examinar mis propias creencias y motivaciones.",
+                        "Reflexiono sobre el sentido de mis decisiones importantes.",
+                        "Me pregunto con frecuencia qué tipo de persona quiero llegar a ser.",
+                        "Mis decisiones diarias reflejan los valores que considero fundamentales.",
+                        "A menudo siento distancia entre lo que considero correcto y lo que termino haciendo.",
+                        "Intento aprender algo significativo de las dificultades que atravieso."
+                    ]
+                }
+            ],
+            values: [
+                { id: 'libertad', name: 'Libertad', desc: 'Capacidad de autodeterminación' },
+                { id: 'belleza', name: 'Belleza', desc: 'Experiencia de armonía y asombro' },
+                { id: 'dignidad', name: 'Dignidad', desc: 'Respeto inherente hacia uno mismo' },
+                { id: 'justicia', name: 'Justicia', desc: 'Compromiso con la equidad' },
+                { id: 'verdad', name: 'Verdad', desc: 'Búsqueda de comprensión' },
+                { id: 'amor', name: 'Amor', desc: 'Capacidad de cuidado' }
+            ]
+        };
+
+        const PROFILES = {
+            contemplativo: {
+                name: 'Perfil Contemplativo',
+                icon: '🧘',
+                desc: 'Alta serenidad interior y capacidad reflexiva. La persona muestra una base sólida de autorregulación y conexión con el momento presente.',
+                conditions: (scores) => scores.s1 > 3.2 && scores.s5 > 3.0,
+                indicators: ['Serenidad estable', 'Autoconocimiento profundo', 'Aceptación de lo incontrolable']
+            },
+            explorador: {
+                name: 'Perfil Explorador Existencial',
+                icon: '🔍',
+                desc: 'Búsqueda activa de sentido y alta reflexividad. Se observa una persona en proceso de construir su propio camino y significado vital.',
+                conditions: (scores) => scores.s2 > 3.0 && scores.s5 > 3.2,
+                indicators: ['Búsqueda de propósito', 'Autenticidad en desarrollo', 'Reflexión constante']
+            },
+            relacional: {
+                name: 'Perfil Relacional',
+                icon: '🤝',
+                desc: 'Fuerte anclaje en vínculos y comunidad. El bienestar se sustenta en la calidad de las relaciones y el reconocimiento mutuo.',
+                conditions: (scores) => scores.s4 > 3.3,
+                indicators: ['Vínculos sólidos', 'Capacidad de cuidado', 'Pertenencia comunitaria']
+            },
+            tensionado: {
+                name: 'Perfil Tensionado',
+                icon: '⚡',
+                desc: 'Alta presión social y brecha entre valores y acción. Se observa una distancia significativa entre el ideal y la realidad vivida.',
+                conditions: (scores, gaps) => scores.s3 < 2.5 || gaps.some(g => g >= 4),
+                indicators: ['Presión externa alta', 'Desalineación valores-acción', 'Riesgo de agotamiento']
+            },
+            fragmentado: {
+                name: 'Perfil Fragmentado',
+                icon: '🧩',
+                desc: 'Incoherencia general entre dimensiones. Se sugiere un trabajo de integración y reconstrucción del sentido vital.',
+                conditions: (scores) => {
+                    const avg = (scores.s1 + scores.s2 + scores.s3 + scores.s4 + scores.s5) / 5;
+                    return avg < 2.2;
+                },
+                indicators: ['Dificultad de regulación', 'Falta de propósito claro', 'Aislamiento relacional']
+            },
+            integrado: {
+                name: 'Perfil Integrado',
+                icon: '✨',
+                desc: 'Coherencia entre dimensiones y valores vividos. Persona con desarrollo maduro en múltiples áreas del bienestar filosófico.',
+                conditions: (scores) => {
+                    const avg = (scores.s1 + scores.s2 + scores.s3 + scores.s4 + scores.s5) / 5;
+                    return avg >= 3.3;
+                },
+                indicators: ['Equilibrio dimensional', 'Coherencia valores-acción', 'Autenticidad consolidada']
+            }
+        };
+
+        let allRecords = [], currentUserId = null;
+        let currentChart = null;
+        let currentUser = { name: '', age: 0, prof: '' };
+
+        // =====================================================
+        // USER FUNCTIONS
+        // =====================================================
+
+        function renderTest() {
+            const container = document.getElementById('questions-container');
+            let html = '';
+
+            IBFI_DATA.sections.forEach((section, idx) => {
+                html += `
+                    <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                        <div class="mb-6">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="w-8 h-8 rounded-lg bg-${section.color}-500/20 text-${section.color}-400 flex items-center justify-center font-bold text-sm">${idx + 1}</span>
+                                <h3 class="text-xl font-semibold text-white">${section.title}</h3>
+                            </div>
+                            <p class="text-slate-500 text-sm ml-11">${section.subtitle}</p>
+                        </div>
+                        <div class="space-y-4">
+                `;
+
+                section.questions.forEach((q, qIdx) => {
+                    const qNum = qIdx + 1;
+                    html += `
+                        <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-800 hover:border-slate-700 transition">
+                            <p class="text-slate-300 mb-4 text-sm">${qNum}. ${q}</p>
+                            <div class="grid grid-cols-4 gap-2">
+                                ${[1,2,3,4].map(val => `
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="${section.id}_q${qIdx}" value="${val}" required 
+                                            class="hidden peer" onchange="updateProgress()">
+                                        <div class="text-center py-3 rounded-lg border border-slate-700 bg-slate-800/50 text-slate-400 text-sm peer-checked:bg-${section.color}-500/20 peer-checked:border-${section.color}-500 peer-checked:text-${section.color}-300 transition">
+                                            ${val === 1 ? 'Nunca' : val === 2 ? 'A veces' : val === 3 ? 'Frec.' : 'Siempre'}
+                                        </div>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `</div></div>`;
+            });
+
+            // Section 6: Values
+            html += `
+                <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                    <div class="mb-6">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-sm">6</span>
+                            <h3 class="text-xl font-semibold text-white">Jerarquía de Valores</h3>
+                        </div>
+                        <p class="text-slate-500 text-sm ml-11">Escala 1-10: Importancia vs Presencia</p>
+                    </div>
+                    <div class="space-y-6">
+            `;
+
+            IBFI_DATA.values.forEach((val, vIdx) => {
+                html += `
+                    <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-800">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <h4 class="font-semibold text-white">${val.name}</h4>
+                                <p class="text-slate-500 text-xs">${val.desc}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-xs text-slate-400 block mb-2">Importancia</label>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-600">1</span>
+                                    <input type="range" min="1" max="10" value="5" class="flex-1" id="imp_${vIdx}" oninput="document.getElementById('imp_val_${vIdx}').innerText = this.value; updateProgress()">
+                                    <span class="text-xs text-slate-600">10</span>
+                                    <span id="imp_val_${vIdx}" class="w-8 text-center font-bold text-indigo-400">5</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-400 block mb-2">Presencia</label>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-600">1</span>
+                                    <input type="range" min="1" max="10" value="5" class="flex-1 accent-emerald-500" id="pres_${vIdx}" oninput="document.getElementById('pres_val_${vIdx}').innerText = this.value; updateProgress()">
+                                    <span class="text-xs text-slate-600">10</span>
+                                    <span id="pres_val_${vIdx}" class="w-8 text-center font-bold text-emerald-400">5</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+
+            // Section 7: Final Reflection
+            html += `
+                <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+                    <div class="mb-6">
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-sm">7</span>
+                            <h3 class="text-xl font-semibold text-white">Reflexión Final</h3>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800/30 rounded-xl p-4 border border-slate-800">
+                        <p class="text-slate-300 mb-4 italic">"Si tuviera que describir el estado actual de su vida en una frase o imagen, ¿cómo lo expresaría?"</p>
+                        <textarea id="s7_reflection" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-300 focus:border-indigo-500 outline-none resize-none" placeholder="Escriba su reflexión..." oninput="updateProgress()"></textarea>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function updateProgress() {
+            const form = document.getElementById('instrument-form');
+            if (!form) return;
+            
+            let answered = 0;
+            let total = 0;
+            
+            IBFI_DATA.sections.forEach(sec => {
+                sec.questions.forEach((_, idx) => {
+                    total++;
+                    if (form.querySelector(`input[name="${sec.id}_q${idx}"]:checked`)) answered++;
+                });
+            });
+            
+            // Values count as one section
+            total += 1;
+            const valuesAnswered = Array.from({length: 6}, (_, i) => 
+                document.getElementById(`imp_${i}`)?.value !== '5' || document.getElementById(`pres_${i}`)?.value !== '5'
+            ).some(Boolean);
+            if (valuesAnswered) answered++;
+            
+            // Reflection counts as one
+            total += 1;
+            if (document.getElementById('s7_reflection')?.value?.trim()) answered++;
+            
+            const pct = Math.round((answered / total) * 100);
+            document.getElementById('progress-bar').style.width = `${pct}%`;
+            document.getElementById('progress-text').innerText = `${pct}%`;
+        }
+
+        function iniciarTest() {
+            const name = document.getElementById('user-name').value.trim();
+            const age = document.getElementById('user-age').value.trim();
+            const prof = document.getElementById('user-prof').value.trim();
+            const consent = document.getElementById('user-consent').checked;
+
+            if (!name || !age || !prof || !consent) {
+                alert('Complete todos los campos y acepte los términos.');
+                return;
+            }
+            if (parseInt(age) < 18 || parseInt(age) > 120) {
+                alert('Edad debe estar entre 18 y 120 años.');
+                return;
+            }
+
+            // Guardar para usar en envío
+            currentUser = { name, age: parseInt(age), prof };
+
+            document.getElementById('step-registration').classList.add('hidden');
+            document.getElementById('step-instrument').classList.remove('hidden');
+            renderTest();
+            window.scrollTo(0, 0);
+        }
+
+        async function enviarResultados(e) {
+            e.preventDefault();
+            
+            if (!window.db) {
+                alert('Error de conexión con la base de datos.');
+                return;
+            }
+
+            document.getElementById('btn-enviar').innerHTML = '<div class="spinner w-5 h-5 border-2 inline-block mr-2"></div> Procesando...';
+            document.getElementById('step-instrument').classList.add('hidden');
+            document.getElementById('step-loading').classList.remove('hidden');
+
+            try {
+                const form = e.target;
+                const { collection, addDoc } = window.firebaseCollections;
+                
+                // Calculate scores
+                const scores = {};
+                IBFI_DATA.sections.forEach(sec => {
+                    let sum = 0;
+                    sec.questions.forEach((_, idx) => {
+                        const val = parseInt(form.querySelector(`input[name="${sec.id}_q${idx}"]:checked`)?.value || 0);
+                        // Inverse scoring for negative questions, se usan los índices definidos en cada sección
+                        const negativeIndices = sec.negativeIndices || [];
+                        if (negativeIndices.includes(idx)) {
+                            sum += (5 - val); // Reverse: 1->4, 4->1
+                        } else {
+                            sum += val;
+                        }
+                    });
+                    scores[sec.id] = sum / sec.questions.length;
+                });
+
+                // IBFI Global
+                const ibfi = (scores.s1 + scores.s2 + scores.s3 + scores.s4 + scores.s5) / 5;
+
+                // Values with gaps
+                const valuesData = [];
+                let maxGap = -1; // Permite que un gap de 0 pueda establecer el priorityValue
+                let priorityValue = '';
+                
+                IBFI_DATA.values.forEach((val, idx) => {
+                    const imp = parseInt(document.getElementById(`imp_${idx}`).value);
+                    const pres = parseInt(document.getElementById(`pres_${idx}`).value);
+                    const gap = imp - pres;
+                    valuesData.push({ name: val.name, importance: imp, presence: pres, gap });
+                    if (gap > maxGap) {
+                        maxGap = gap;
+                        priorityValue = val.name;
+                    }
+                });
+
+                const confirmCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                
+                const data = {
+                    confirmCode,
+                    name: currentUser.name,
+                    age: currentUser.age,
+                    prof: currentUser.prof,
+                    date: new Date().toISOString(),
+                    scores,
+                    ibfi,
+                    values: valuesData,
+                    maxGap,
+                    priorityValue,
+                    reflection: document.getElementById('s7_reflection').value.trim(),
+                    retroalimentado: false
+                };
+
+                await addDoc(collection(window.db, "evaluaciones"), data);
+                
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-thanks').classList.remove('hidden');
+                document.getElementById('confirm-code').innerText = confirmCode;
+                
+            } catch (err) {
+                console.error('Error detallado:', err);
+                alert('Error al enviar. Intente nuevamente.\\nDetalle: ' + err.message);
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-instrument').classList.remove('hidden');
+                
+                // Restaurar estado del botón
+                const btnEnviar = document.getElementById('btn-enviar');
+                if (btnEnviar) {
+                    btnEnviar.innerHTML = `
+                        <span>Finalizar y Enviar</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                    `;
+                }
+            }
+        }
+
+        // =====================================================
+        // ADMIN FUNCTIONS
+        // =====================================================
+
+        async function cargarDatosAdmin() {
+            if (!window.db) {
+                document.getElementById('firebase-status').className = 'bg-red-900/30 border border-red-800 rounded-lg p-3 mb-6 flex items-center gap-3';
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+                document.getElementById('status-text').innerText = 'Error de conexión';
+                return;
+            }
+
+            try {
+                const { collection, getDocs, query, orderBy } = window.firebaseCollections;
+                const q = query(collection(window.db, "evaluaciones"), orderBy("date", "desc"));
+                const snap = await getDocs(q);
+                
+                allRecords = [];
+                snap.forEach(doc => allRecords.push({ id: doc.id, ...doc.data() }));
+
+                document.getElementById('firebase-status').className = 'bg-emerald-900/30 border border-emerald-800 rounded-lg p-3 mb-6 flex items-center gap-3';
+                document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-emerald-500';
+                document.getElementById('status-text').innerText = `${allRecords.length} expedientes cargados`;
+
+                renderizarListaUsuarios(allRecords);
+            } catch (err) {
+                document.getElementById('status-text').innerText = 'Error: ' + err.message;
+            }
+        }
+
+        function renderizarListaUsuarios(records) {
+            document.getElementById('total-expedientes').innerText = records.length;
+            const container = document.getElementById('admin-users-list');
+            
+            if (records.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-500 py-8">Sin expedientes</div>';
+                return;
+            }
+
+            const h24 = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            
+            container.innerHTML = records.map(rec => {
+                const d = new Date(rec.date);
+                const isNew = d > h24;
+                const done = rec.retroalimentado;
+                return `
+                    <button onclick="verUsuario('${rec.id}')" id="btn-user-${rec.id}" 
+                        class="w-full text-left p-3 rounded-xl border transition ${isNew ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/30'} ${done ? 'opacity-60' : ''} hover:border-indigo-500/50">
+                        <div class="font-medium text-slate-200">${rec.name}</div>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-xs font-mono text-indigo-400">${rec.confirmCode}</span>
+                            <span class="text-xs text-slate-600">${d.toLocaleDateString()}</span>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function verUsuario(id) {
+            const rec = allRecords.find(r => r.id === id);
+            if (!rec) return;
+            currentUserId = id;
+
+            // UI updates
+            document.querySelectorAll('#admin-users-list button').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/10'));
+            document.getElementById(`btn-user-${id}`)?.classList.add('border-indigo-500', 'bg-indigo-500/10');
+            
+            document.getElementById('admin-empty-state').classList.add('hidden');
+            document.getElementById('admin-dashboard').classList.remove('hidden');
+
+            // Header
+            document.getElementById('dash-name').innerText = rec.name;
+            document.getElementById('dash-age').innerText = rec.age;
+            document.getElementById('dash-prof').innerText = rec.prof;
+            document.getElementById('dash-code').innerText = rec.confirmCode;
+            document.getElementById('final-reflection').innerText = rec.reflection || 'Sin respuesta';
+
+            // Update retro button
+            const btnRetro = document.getElementById('btn-retro');
+            if (rec.retroalimentado) {
+                btnRetro.innerHTML = '✓ Retroalimentado';
+                btnRetro.className = 'bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm';
+            } else {
+                btnRetro.innerHTML = '✓ Marcar Retroalimentado';
+                btnRetro.className = 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-600/30 px-4 py-2 rounded-lg text-sm transition';
+            }
+
+            // Render Dashboard
+            renderGauge(rec.ibfi);
+            renderRadar(rec.scores);
+            renderProfile(rec.scores, rec.values);
+            renderValuesChart(rec.values);
+            renderInterpretation(rec);
+            renderSectionBreakdown(rec.scores);
+        }
+
+        function renderGauge(ibfi) {
+            const arc = document.getElementById('gauge-arc');
+            const value = document.getElementById('gauge-value');
+            const interp = document.getElementById('ibfi-interpretation');
+            
+            // 314 is full arc length (π * 100)
+            const pct = Math.min(Math.max(ibfi / 4, 0), 1);
+            const offset = 314 - (314 * pct);
+            
+            arc.style.strokeDashoffset = offset;
+            value.textContent = ibfi.toFixed(2);
+            
+            let text = '', colorClass = '';
+            if (ibfi < 2.0) { text = 'Fragmentación existencial'; colorClass = 'bg-rose-500/20 text-rose-400'; }
+            else if (ibfi < 2.5) { text = 'Tensión significativa'; colorClass = 'bg-orange-500/20 text-orange-400'; }
+            else if (ibfi < 3.0) { text = 'Tensión moderada'; colorClass = 'bg-amber-500/20 text-amber-400'; }
+            else if (ibfi < 3.5) { text = 'Coherencia emergente'; colorClass = 'bg-lime-500/20 text-lime-400'; }
+            else { text = 'Integración sólida'; colorClass = 'bg-emerald-500/20 text-emerald-400'; }
+            
+            interp.innerText = text;
+            interp.className = `inline-block px-4 py-2 rounded-full text-sm font-medium ${colorClass}`;
+        }
+
+        function renderRadar(scores) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if (currentChart) currentChart.destroy();
+            
+            currentChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Serenidad', 'Autenticidad', 'Integración', 'Relacionalidad', 'Reflexividad'],
+                    datasets: [{
+                        label: 'Puntuación',
+                        data: [scores.s1, scores.s2, scores.s3, scores.s4, scores.s5],
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        borderColor: '#818cf8',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#818cf8',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#818cf8'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 4,
+                            ticks: { stepSize: 1, color: '#64748b' },
+                            grid: { color: '#334155' },
+                            angleLines: { color: '#334155' },
+                            pointLabels: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function renderProfile(scores, values) {
+            const gaps = values.map(v => v.gap);
+            let profile = null;
+            
+            // Check profiles in order of specificity
+            for (const [key, prof] of Object.entries(PROFILES)) {
+                if (prof.conditions(scores, gaps)) {
+                    profile = prof;
+                    break;
+                }
+            }
+            
+            if (!profile) profile = PROFILES.explorador; // Default
+            
+            document.getElementById('profile-icon').innerText = profile.icon;
+            document.getElementById('profile-name').innerText = profile.name;
+            document.getElementById('profile-desc').innerText = profile.desc;
+            
+            document.getElementById('profile-indicators').innerHTML = profile.indicators.map(ind => 
+                `<div class="flex items-center gap-2 text-slate-400"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>${ind}</div>`
+            ).join('');
+        }
+
+        function renderValuesChart(values) {
+            const container = document.getElementById('values-chart-container');
+            
+            container.innerHTML = values.map(v => {
+                const impPct = (v.importance / 10) * 100;
+                const presPct = (v.presence / 10) * 100;
+                const gapClass = v.gap >= 4 ? 'text-rose-400' : v.gap >= 2 ? 'text-amber-400' : 'text-emerald-400';
+                
+                return `
+                    <div class="bg-slate-800/30 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="font-medium text-white">${v.name}</span>
+                            <span class="text-sm ${gapClass}">Brecha: ${v.gap}</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-slate-500 w-20">Importancia</span>
+                                <div class="flex-1 bg-slate-700 rounded-full h-2">
+                                    <div class="bg-indigo-500 h-2 rounded-full" style="width: ${impPct}%"></div>
+                                </div>
+                                <span class="text-xs text-indigo-400 w-6">${v.importance}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-slate-500 w-20">Presencia</span>
+                                <div class="flex-1 bg-slate-700 rounded-full h-2">
+                                    <div class="bg-emerald-500 h-2 rounded-full" style="width: ${presPct}%"></div>
+                                </div>
+                                <span class="text-xs text-emerald-400 w-6">${v.presence}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderInterpretation(rec) {
+            const ibfi = rec.ibfi;
+            const maxGap = rec.maxGap;
+            const priority = rec.priorityValue;
+            
+            let html = '';
+            
+            // General state
+            if (ibfi >= 3.0) {
+                html += `<p>El consultante presenta un <strong class="text-emerald-400">nivel bueno de bienestar filosófico</strong> (${ibfi.toFixed(2)}/4.0), con coherencia general entre sus dimensiones existenciales.</p>`;
+            } else if (ibfi >= 2.5) {
+                html += `<p>El consultante muestra un <strong class="text-amber-400">nivel moderado de bienestar</strong> (${ibfi.toFixed(2)}/4.0), con áreas de fortaleza identificadas y otras que requieren atención.</p>`;
+            } else {
+                html += `<p>El consultante presenta <strong class="text-rose-400">tensión significativa</strong> (${ibfi.toFixed(2)}/4.0) en su estructura existencial, sugiriendo un trabajo de integración.</p>`;
+            }
+            
+            // Values gap
+            if (maxGap >= 4) {
+                html += `<p>Existe una <strong class="text-rose-400">distancia existencial significativa</strong> en el valor de <strong>${priority}</strong>, donde la importancia atribuida supera ampliamente su presencia vivida.</p>`;
+            } else if (maxGap >= 2) {
+                html += `<p>Se observa <strong class="text-amber-400">tensión moderada</strong> entre valores y experiencia, particularmente en <strong>${priority}</strong>.</p>`;
+            } else {
+                html += `<p>Sus valores muestran <strong class="text-emerald-400">buena alineación</strong> entre importancia y presencia vivida.</p>`;
+            }
+            
+            // Recommendation
+            html += `<p class="text-indigo-300 mt-4"><strong>Punto de partida sugerido:</strong> Explorar la dimensión de ${getWeakestDimension(rec.scores)} y trabajar la brecha en ${priority}.</p>`;
+            
+            document.getElementById('interpretation-text').innerHTML = html;
+        }
+
+        function getWeakestDimension(scores) {
+            const dims = [
+                { id: 's1', name: 'Serenidad' },
+                { id: 's2', name: 'Autenticidad' },
+                { id: 's3', name: 'Integración Social' },
+                { id: 's4', name: 'Relacionalidad' },
+                { id: 's5', name: 'Reflexividad' }
+            ];
+            return dims.reduce((min, dim) => scores[dim.id] < scores[min.id] ? dim : min, dims[0]).name;
+        }
+
+        function renderSectionBreakdown(scores) {
+            const dims = [
+                { id: 's1', name: 'Serenidad', color: 'blue', sub: 'Fortaleza Interior' },
+                { id: 's2', name: 'Autenticidad', color: 'violet', sub: 'Sentido Vital' },
+                { id: 's3', name: 'Integración', color: 'orange', sub: 'Alienación Social' },
+                { id: 's4', name: 'Relacionalidad', color: 'emerald', sub: 'Cuidado' },
+                { id: 's5', name: 'Reflexividad', color: 'slate', sub: 'Coherencia' }
+            ];
+            
+            document.getElementById('section-breakdown').innerHTML = dims.map(d => {
+                const score = scores[d.id];
+                const pct = (score / 4) * 100;
+                const color = score >= 3 ? 'bg-emerald-500' : score >= 2.5 ? 'bg-lime-500' : score >= 2 ? 'bg-amber-500' : 'bg-rose-500';
+                
+                return `
+                    <div class="bg-slate-800/30 rounded-lg p-4 border border-slate-800">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <div class="font-medium text-white">${d.name}</div>
+                                <div class="text-xs text-slate-500">${d.sub}</div>
+                            </div>
+                            <div class="text-xl font-bold text-${d.color}-400">${score.toFixed(2)}</div>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5">
+                            <div class="${color} h-1.5 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function marcarRetroalimentado() {
+            if (!currentUserId) return;
+            try {
+                const { doc, updateDoc } = window.firebaseCollections;
+                await updateDoc(doc(window.db, "evaluaciones", currentUserId), { retroalimentado: true });
+                const rec = allRecords.find(r => r.id === currentUserId);
+                if (rec) rec.retroalimentado = true;
+                verUsuario(currentUserId);
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        async function eliminarExpediente() {
+            if (!currentUserId || !confirm('¿Eliminar permanentemente?')) return;
+            try {
+                const { doc, deleteDoc } = window.firebaseCollections;
+                await deleteDoc(doc(window.db, "evaluaciones", currentUserId));
+                allRecords = allRecords.filter(r => r.id !== currentUserId);
+                currentUserId = null;
+                document.getElementById('admin-dashboard').classList.add('hidden');
+                document.getElementById('admin-empty-state').classList.remove('hidden');
+                renderizarListaUsuarios(allRecords);
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+
+        function exportarTodosDatos() {
+            if (!allRecords.length) return alert('No hay datos');
+            const blob = new Blob([JSON.stringify(allRecords, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `IBFI_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+
+        function exportarUsuarioActual(fmt) {
+            if (!currentUserId) return;
+            const rec = allRecords.find(r => r.id === currentUserId);
+            if (!rec) return;
+            
+            // Simple PDF export
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(20);
+            doc.text('IBFI-C Pro - Informe', 105, 20, { align: 'center' });
+            
+            doc.setFontSize(12);
+            doc.text(`Paciente: ${rec.name}`, 20, 40);
+            doc.text(`IBFI Global: ${rec.ibfi.toFixed(2)}/4.0`, 20, 50);
+            doc.text(`Prioridad: ${rec.priorityValue}`, 20, 60);
+            
+            let y = 80;
+            doc.text('Dimensiones:', 20, y);
+            y += 10;
+            ['s1','s2','s3','s4','s5'].forEach((s, i) => {
+                const names = ['Serenidad','Autenticidad','Integración','Relacionalidad','Reflexividad'];
+                doc.text(`${names[i]}: ${rec.scores[s].toFixed(2)}`, 30, y);
+                y += 8;
+            });
+            
+            doc.save(`IBFI_${rec.name.replace(/\s+/g,'_')}.pdf`);
+        }
+
+        function recargarDatos() {
+            cargarDatosAdmin();
+        }
+
+        function filtrarUsuarios() {
+            const term = document.getElementById('search-input').value.toLowerCase();
+            const filtrados = allRecords.filter(r => r.name.toLowerCase().includes(term) || r.confirmCode.toLowerCase().includes(term));
+            renderizarListaUsuarios(filtrados);
+        }
+
+        function abrirAdmin() {
+            const pwd = prompt('Contraseña:');
+            if (pwd === 'IBFI-Pro-2026!' || pwd === 'ElEscuchante#99') {
+                document.getElementById('user-app').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                document.body.classList.remove('bg-gray-50');
+                document.body.classList.add('bg-slate-950');
+                cargarDatosAdmin();
+            } else if (pwd) {
+                alert('Contraseña incorrecta');
+            }
+        }
+
+        function cerrarAdmin() {
+            document.getElementById('admin-panel').classList.add('hidden');
+            document.getElementById('user-app').classList.remove('hidden');
+            document.body.classList.add('bg-gray-50');
+            document.body.classList.remove('bg-slate-950');
+            location.reload();
+        }
+
+        function cerrarSetupModal() {
+            document.getElementById('setup-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

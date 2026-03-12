@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IBFI-C Pro | El Escuchante</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        
+        // CONFIGURACIÓN FIREBASE - PROYECTO: EL ESCUCHANTE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCX1AZICs5iNBv-zsm_GAaxfepeCcZdzQM",
+            authDomain: "el-escuchante.firebaseapp.com",
+            projectId: "el-escuchante",
+            storageBucket: "el-escuchante.firebasestorage.app",
+            messagingSenderId: "794056663018",
+            appId: "1:794056663018:web:b1e97875b8b922751d5c93",
+            measurementId: "G-2NWHDMN60T"
+        };
+        
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // Hacer disponible globalmente
+        window.db = db;
+        window.firebaseCollections = { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, getDoc };
+    </script>
+    
+    <style>
+        input[type="range"] {
+            accent-color: #4f46e5;
+        }
+
+        #admin-users-list::-webkit-scrollbar,
+        #admin-dashboard::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #admin-users-list::-webkit-scrollbar-track,
+        #admin-dashboard::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 1);
+        }
+
+        #admin-users-list::-webkit-scrollbar-thumb,
+        #admin-dashboard::-webkit-scrollbar-thumb {
+            background: rgba(71, 85, 105, 1);
+            border-radius: 4px;
+        }
+
+        input[type="radio"]:checked+span {
+            font-weight: 700;
+            color: #4f46e5;
+        }
+
+        @keyframes progressFill {
+            from { width: 0%; }
+        }
+
+        .progress-fill {
+            animation: progressFill 0.5s ease-out;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-optimal { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-good { background-color: #84cc16; }
+        .status-warning { background-color: #f59e0b; }
+        .status-alert { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        .formula-box {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+
+        .section-fade {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #4f46e5;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Pulse animation for new records */
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+        }
+
+        .new-record {
+            animation: pulse-green 2s infinite;
+            border-color: #10b981 !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-900 font-sans min-h-screen transition-colors duration-300 flex flex-col pt-8"
+    id="main-body">
+
+    <!-- USER APP CONTAINER -->
+    <div id="app-container-wrapper" class="max-w-4xl mx-auto px-6 w-full flex-1">
+
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-indigo-900 inline-block relative cursor-default">
+                El Escuchante
+                <div onclick="abrirAdmin()"
+                    class="absolute -right-6 top-1 w-4 h-4 rounded-full opacity-0 hover:opacity-100 bg-indigo-200 cursor-pointer transition"
+                    title="Acceso Directivo"></div>
+            </h1>
+            <p class="text-lg text-gray-600 mt-2 font-medium">Instrumento de Bienestar Filosófico Integral (IBFI-C Pro)
+            </p>
+            <p class="text-sm text-gray-400 mt-1">Evaluación Confidencial | Uso Profesional Exclusivo</p>
+        </header>
+
+        <div
+            class="bg-white shadow-xl shadow-indigo-100/50 rounded-3xl p-8 md:p-10 border border-gray-100 relative mb-12">
+
+            <!-- Progress Bar (Visible during test) -->
+            <div id="progress-container" class="hidden mb-8">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-bold text-indigo-900">Progreso de Evaluación</span>
+                    <span class="text-sm font-bold text-indigo-600" id="progress-text">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 to-indigo-700 h-3 rounded-full progress-fill transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-xs text-gray-400">
+                    <span>Registro</span>
+                    <span>Dimensiones</span>
+                    <span>Valores</span>
+                    <span>Reflexión</span>
+                </div>
+            </div>
+
+            <!-- STEP 1: REGISTRATION -->
+            <section id="step-registration" class="space-y-8 section-fade">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 border-b border-gray-100 pb-3 mb-6">Información Inicial
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Nombre Completo *</label>
+                            <input type="text" id="user-name" required
+                                class="w-full border border-gray-300 rounded-xl p-3.5 bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:border-indigo-500 transition outline-none"
+                                placeholder="Ej: María González">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Edad *</label>
+                            <input type="number" id="user-age" min="18" max="120" required
+                                class="w-full border border-gray-300 rounded-xl p-3.5 bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:border-indigo-500 transition outline-none"
+                                placeholder="Ej: 34">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Profesión / Ocupación *</label>
+                            <input type="text" id="user-prof" required
+                                class="w-full border border-gray-300 rounded-xl p-3.5 bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:bg-white focus:border-indigo-500 transition outline-none"
+                                placeholder="Ej: Psicóloga">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mt-8">
+                    <div class="flex items-start gap-4">
+                        <div class="bg-indigo-100 p-2 rounded-lg text-indigo-600 shrink-0">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-indigo-900 mb-2">Declaratoria de Confidencialidad</h3>
+                            <p class="text-sm text-indigo-800/80 leading-relaxed">
+                                Entiendo que esta evaluación es una herramienta profesional. Los resultados serán 
+                                <strong>recibidos y analizados exclusivamente por mi consultante</strong> en 
+                                <strong>"El Escuchante"</strong>, quien me los presentará y explicará durante nuestra 
+                                sesión de retroalimentación. No intentaré acceder a mis resultados por medios propios.
+                            </p>
+                            <label class="flex items-start mt-4 cursor-pointer group">
+                                <div class="flex items-center h-5 mt-0.5">
+                                    <input type="checkbox" id="user-consent" required
+                                        class="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 accent-indigo-600 cursor-pointer">
+                                </div>
+                                <span
+                                    class="ml-3 text-sm font-bold text-gray-800 group-hover:text-indigo-800 transition">
+                                    Confirmo y acepto los términos de confidencialidad.*
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Important Notice -->
+                <div class="bg-amber-50 border border-amber-200 p-4 rounded-xl">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="text-sm text-amber-800">
+                            <strong>Importante:</strong> Al finalizar, sus respuestas se enviarán directamente a su consultante. 
+                            <strong>Usted NO verá sus resultados inmediatamente</strong>; estos serán presentados y explicados 
+                            durante su sesión de retroalimentación personalizada.
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="iniciarTest()"
+                    class="w-full bg-indigo-900 text-white font-bold py-4 rounded-xl hover:bg-indigo-800 hover:-translate-y-1 transition transform shadow-lg text-lg mt-8">
+                    Comenzar Evaluación
+                </button>
+            </section>
+
+            <!-- STEP 2: INSTRUMENT -->
+            <section id="step-instrument" class="hidden section-fade">
+                <form id="instrument-form" onsubmit="enviarResultados(event)">
+
+                    <div class="mb-10 pb-6 border-b border-gray-100">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">Evaluación Filosófica</h2>
+                        <p class="text-gray-600">Responda con total honestidad. Seleccione la opción que mejor describa su experiencia actual.</p>
+                    </div>
+
+                    <div id="questions-container" class="space-y-12"></div>
+
+                    <div class="mt-12 pt-8 border-t border-gray-200 text-center">
+                        <button type="submit" id="btn-enviar"
+                            class="w-full md:w-auto px-16 bg-indigo-900 text-white font-bold py-4 rounded-xl hover:bg-indigo-800 hover:-translate-y-1 transition transform shadow-xl text-lg flex items-center justify-center gap-2 mx-auto">
+                            <span>Enviar a mi Consultante</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            </svg>
+                        </button>
+                        <p class="text-sm text-gray-400 mt-4">
+                            Sus respuestas se enviarán de forma segura y confidencial.
+                        </p>
+                    </div>
+                </form>
+            </section>
+
+            <!-- STEP 3: CONFIRMATION ONLY (No results shown) -->
+            <section id="step-thanks" class="hidden text-center py-12 section-fade">
+                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-emerald-100 text-emerald-600 mb-8 mx-auto shadow-inner">
+                    <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">¡Evaluación Enviada!</h2>
+                <div class="bg-green-50 border border-green-200 p-6 rounded-2xl mb-8 max-w-lg mx-auto">
+                    <p class="text-green-800 font-medium mb-2">Código de Confirmación:</p>
+                    <p class="text-3xl font-mono font-bold text-green-700 tracking-wider" id="confirm-code">---</p>
+                </div>
+                <p class="text-lg text-gray-600 mb-6 max-w-lg mx-auto leading-relaxed">
+                    Sus respuestas han sido enviadas de forma segura a <strong>El Escuchante</strong>. 
+                    Sus resultados serán analizados y presentados durante su sesión de retroalimentación.
+                </p>
+                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 max-w-md mx-auto mb-8">
+                    <p class="text-sm text-gray-500">
+                        <strong>Nota:</strong> Guarde su código de confirmación. Su consultante podrá solicitarlo 
+                        para ubicar rápidamente su evaluación.
+                    </p>
+                </div>
+                <button onclick="location.reload()"
+                    class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 px-8 rounded-xl transition border border-gray-300">
+                    Finalizar
+                </button>
+            </section>
+
+            <!-- Loading State -->
+            <section id="step-loading" class="hidden text-center py-16 section-fade">
+                <div class="spinner mx-auto mb-6"></div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Enviando evaluación...</h3>
+                <p class="text-gray-500">Por favor no cierre esta ventana.</p>
+            </section>
+
+        </div>
+
+        <footer class="text-center text-gray-400 text-sm pb-8">
+            &copy; 2026 El Escuchante. Todos los derechos reservados. <span
+                class="pl-2 border-l border-gray-300 ml-2 cursor-pointer hover:text-indigo-400 transition"
+                onclick="abrirAdmin()">D</span>
+        </footer>
+    </div>
+
+    <!-- ADMIN PANEL OVERLAY -->
+    <div id="admin-panel" class="hidden min-h-screen bg-slate-900 w-full relative z-50 py-8 px-4 md:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col h-[calc(100vh-4rem)]">
+
+            <header class="flex justify-between items-center mb-6 shrink-0">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-white tracking-wide">Panel Directivo <span
+                            class="text-indigo-500 font-light">| IBFI-C Pro</span></h1>
+                    <p class="text-slate-400 text-sm mt-1">Sistema de Análisis Cuantitativo | Datos en Tiempo Real</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="recargarDatos()"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Actualizar
+                    </button>
+                    <button onclick="exportarTodosDatos()"
+                        class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2 px-4 rounded-lg transition border border-slate-600 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Exportar Todo
+                    </button>
+                    <button onclick="cerrarAdmin()"
+                        class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2 px-6 rounded-lg transition border border-slate-700">Cerrar
+                        Sesión</button>
+                </div>
+            </header>
+
+            <!-- Firebase Status -->
+            <div id="firebase-status" class="bg-slate-800 border border-slate-700 rounded-lg p-3 mb-4 flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full bg-yellow-500" id="status-dot"></div>
+                <span class="text-sm text-slate-300" id="status-text">Conectando a base de datos...</span>
+            </div>
+
+            <!-- Search/Filter Bar -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-4 flex gap-4 items-center">
+                <div class="flex-1">
+                    <input type="text" id="search-input" placeholder="Buscar por nombre..." 
+                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                        oninput="filtrarUsuarios()">
+                </div>
+                <div>
+                    <input type="text" id="search-code" placeholder="Buscar por código..." 
+                        class="w-48 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none font-mono"
+                        oninput="filtrarPorCodigo()">
+                </div>
+                <select id="filter-status" class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white focus:border-indigo-500 focus:outline-none" onchange="filtrarUsuarios()">
+                    <option value="all">Todos</option>
+                    <option value="new">Nuevos (24h)</option>
+                    <option value="week">Esta semana</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
+
+                <!-- Sidebar -->
+                <div
+                    class="lg:col-span-1 bg-slate-800 rounded-2xl border border-slate-700 flex flex-col overflow-hidden shadow-2xl shadow-indigo-900/10">
+                    <div class="p-4 border-b border-slate-700 bg-slate-900/50">
+                        <div class="flex justify-between items-center">
+                            <h3 class="font-bold text-indigo-300 uppercase tracking-widest text-xs">Expedientes</h3>
+                            <span id="total-expedientes" class="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-1">Clic para ver análisis completo</p>
+                    </div>
+                    <div id="admin-users-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+                        <!-- User buttons get injected here -->
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="lg:col-span-3 bg-slate-800 rounded-2xl border border-slate-700 flex items-center justify-center p-8 shadow-2xl shadow-indigo-900/10"
+                    id="admin-empty-state">
+                    <div class="text-center text-slate-500">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                            </path>
+                        </svg>
+                        <p class="text-xl font-medium">Seleccione un consultante</p>
+                        <p class="text-sm mt-2 opacity-75">Los expedientes aparecerán automáticamente</p>
+                    </div>
+                </div>
+
+                <!-- Dashboard Content -->
+                <div class="lg:col-span-3 hidden flex-col gap-6 overflow-y-auto pr-2 pb-10 custom-scroll"
+                    id="admin-dashboard">
+
+                    <!-- Header Profile Mejorado -->
+                    <div class="bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 p-6 rounded-2xl shadow-2xl relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-600 rounded-full blur-3xl opacity-10 -translate-y-1/2 translate-x-1/2"></div>
+                        <div class="absolute bottom-0 left-0 w-48 h-48 bg-emerald-600 rounded-full blur-3xl opacity-10 translate-y-1/2 -translate-x-1/2"></div>
+                        
+                        <div class="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                            <!-- Info del paciente -->
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="bg-indigo-500/20 border border-indigo-500/40 px-3 py-1 rounded-full text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                                        Expediente IBFI-C
+                                    </span>
+                                    <span class="bg-slate-700/50 px-2 py-1 rounded text-xs font-mono text-slate-400" id="dash-code"></span>
+                                </div>
+                                <h2 class="text-3xl font-bold text-white mb-2" id="dash-name"></h2>
+                                <div class="flex flex-wrap items-center gap-4 text-sm text-slate-400">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        <span id="dash-age"></span> años
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                        <span id="dash-prof"></span>
+                                    </span>
+                                    <span class="text-slate-500 text-xs" id="dash-date"></span>
+                                </div>
+                            </div>
+
+                            <!-- KPI Cards -->
+                            <div class="flex gap-3 w-full lg:w-auto">
+                                <div class="flex-1 lg:flex-none bg-slate-800/80 backdrop-blur p-4 rounded-xl border border-slate-600/50 text-center min-w-[100px]">
+                                    <div class="text-xs text-slate-400 mb-1">Bienestar Global</div>
+                                    <div class="text-2xl font-bold text-emerald-400" id="dash-bg"></div>
+                                    <div class="text-[10px] text-slate-500 mt-1">de 4.00</div>
+                                    <div class="mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full inline-block" id="dash-bg-badge"></div>
+                                </div>
+                                <div class="flex-1 lg:flex-none bg-slate-800/80 backdrop-blur p-4 rounded-xl border border-slate-600/50 text-center min-w-[100px]">
+                                    <div class="text-xs text-slate-400 mb-1">Tensión</div>
+                                    <div class="text-2xl font-bold text-rose-400" id="dash-te"></div>
+                                    <div class="text-[10px] text-slate-500 mt-1">de 54 pts</div>
+                                    <div class="mt-2 text-[10px] font-medium px-2 py-0.5 rounded-full inline-block" id="dash-te-badge"></div>
+                                </div>
+                                <div class="flex-1 lg:flex-none bg-gradient-to-br from-amber-500/20 to-orange-500/20 backdrop-blur p-4 rounded-xl border border-amber-500/30 text-center min-w-[100px]">
+                                    <div class="text-xs text-amber-300 mb-1">Prioridad</div>
+                                    <div class="text-lg font-bold text-amber-400 leading-tight" id="dash-prioridad"></div>
+                                    <div class="text-[10px] text-amber-300/70 mt-1">Intervención</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Insight Narrativo (Para leer al cliente) -->
+                    <div class="bg-gradient-to-r from-indigo-900/40 via-slate-800 to-indigo-900/40 border border-indigo-500/30 rounded-2xl p-6 shadow-lg">
+                        <div class="flex items-start gap-4">
+                            <div class="bg-indigo-500 p-3 rounded-xl shrink-0">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-white mb-2">Interpretación para la Retroalimentación</h3>
+                                <p class="text-slate-300 leading-relaxed text-sm" id="insight-narrativo">
+                                    <!-- Se llena dinámicamente -->
+                                </p>
+                                <div class="mt-3 flex gap-2 flex-wrap" id="insight-tags">
+                                    <!-- Tags dinámicos -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid Mejorado -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- Radar Chart -->
+                        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">Balance Dimensional</h3>
+                                    <p class="text-xs text-slate-400">Las 4 áreas de tu bienestar filosófico</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[10px] text-slate-500 block">Referencia óptima</span>
+                                    <span class="text-sm font-bold text-emerald-400">3.5</span>
+                                </div>
+                            </div>
+                            <div class="relative h-[280px]">
+                                <canvas id="radarChart"></canvas>
+                            </div>
+                            <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-700/50 p-2 rounded text-center">
+                                    <span class="text-slate-400">Tu promedio:</span>
+                                    <span class="text-white font-bold ml-1" id="radar-promedio"></span>
+                                </div>
+                                <div class="bg-slate-700/50 p-2 rounded text-center">
+                                    <span class="text-slate-400">Área más fuerte:</span>
+                                    <span class="text-emerald-400 font-bold ml-1" id="radar-mejor"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bar Chart -->
+                        <div class="bg-slate-800/50 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">Tensión de Valores</h3>
+                                    <p class="text-xs text-slate-400">Brecha entre lo importante y lo presente</p>
+                                </div>
+                            </div>
+                            <div class="relative h-[280px]">
+                                <canvas id="barChart"></canvas>
+                            </div>
+                            <div class="mt-4 bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                                    <span class="text-rose-300 font-medium">Línea roja:</span>
+                                    <span class="text-slate-400">Mayor brecha = Mayor tensión = Prioridad de trabajo</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Análisis Detallado por Dimensiones -->
+                    <div class="bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+                        <div class="p-5 border-b border-slate-700 bg-slate-800">
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                                Análisis por Dimensiones
+                            </h3>
+                        </div>
+                        <div class="p-5 space-y-4" id="dimensiones-cards">
+                            <!-- Se llena dinámicamente con cards visuales -->
+                        </div>
+                    </div>
+
+                    <!-- Análisis de Valores Mejorado -->
+                    <div class="bg-slate-800/50 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+                        <div class="p-5 border-b border-slate-700 bg-slate-800">
+                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                                Jerarquía de Valores y Brechas
+                            </h3>
+                        </div>
+                        <div class="p-5">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6" id="valores-prioritarios">
+                                <!-- Top 3 valores con brecha -->
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-slate-700/50 text-slate-300">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left font-medium">Valor</th>
+                                            <th class="px-4 py-3 text-center font-medium">Importancia</th>
+                                            <th class="px-4 py-3 text-center font-medium">Presencia</th>
+                                            <th class="px-4 py-3 text-center font-medium">Brecha</th>
+                                            <th class="px-4 py-3 text-center font-medium">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="values-analysis-body" class="divide-y divide-slate-700/50">
+                                        <!-- Filled by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cierre Hermenéutico Destacado -->
+                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-xl">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="bg-indigo-500 p-2 rounded-lg">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Reflexión Narrativa del Consultante</h3>
+                                <p class="text-xs text-slate-400">Cierre Hermenéutico - Palabras del consultante sobre su camino</p>
+                            </div>
+                        </div>
+                        <div class="bg-slate-900/50 rounded-xl p-6 border-l-4 border-indigo-500 relative">
+                            <svg class="absolute top-4 left-4 w-8 h-8 text-indigo-500/20" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+                            </svg>
+                            <p class="text-slate-300 leading-relaxed italic pl-8 font-serif text-base" id="dash-hermeneutic"></p>
+                        </div>
+                    </div>
+
+                    <!-- Guía de Interpretación (Colapsable) -->
+                    <div class="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+                        <button onclick="toggleInterpretationGuide()" class="flex items-center justify-between w-full text-left">
+                            <span class="text-sm font-bold text-slate-300 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Guía de Interpretación para el Profesional
+                            </span>
+                            <svg id="guide-arrow" class="w-5 h-5 text-slate-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="interpretation-guide" class="hidden mt-4 text-xs text-slate-400 space-y-3">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-slate-800 p-3 rounded">
+                                    <strong class="text-emerald-400 block mb-1">Bienestar Global:</strong>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li><span class="text-emerald-400">3.5-4.0:</span> Desarrollo óptimo</li>
+                                        <li><span class="text-lime-400">2.5-3.5:</span> Nivel bueno, margen de crecimiento</li>
+                                        <li><span class="text-amber-400">1.5-2.5:</span> Área que requiere atención</li>
+                                        <li><span class="text-rose-400">1.0-1.5:</span> Prioridad terapéutica</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-slate-800 p-3 rounded">
+                                    <strong class="text-rose-400 block mb-1">Tensión Existencial:</strong>
+                                    <ul class="list-disc pl-4 space-y-1">
+                                        <li><span class="text-emerald-400">0-15:</span> Baja tensión, valores alineados</li>
+                                        <li><span class="text-amber-400">16-30:</span> Tensión moderada, trabajo recomendado</li>
+                                        <li><span class="text-orange-400">31-45:</span> Alta tensión, intervención prioritaria</li>
+                                        <li><span class="text-rose-400">46-54:</span> Tensión crítica, crisis existencial</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="text-slate-500 italic">
+                                <strong>Nota:</strong> La "Prioridad de Intervención" indica el valor con mayor brecha (diferencia entre importancia y presencia). 
+                                Este es el punto de partida ideal para la exploración terapéutica.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-wrap gap-3 justify-end pt-4 border-t border-slate-700">
+                        <button onclick="marcarRetroalimentado()" id="btn-retroalimentado" 
+                            class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 px-5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-900/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Marcar como Retroalimentado
+                        </button>
+                        <button onclick="exportarUsuarioActual('pdf')" 
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 px-5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-indigo-900/20">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            Descargar Informe PDF
+                        </button>
+                        <button onclick="eliminarExpediente()" 
+                            class="bg-rose-700/80 hover:bg-rose-700 text-white font-semibold py-2.5 px-5 rounded-xl transition flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                            Eliminar
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Setup Modal (for first time) -->
+    <div id="setup-modal" class="hidden fixed inset-0 bg-black/80 z-[200] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full p-8 shadow-2xl">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">⚙️ Configuración Requerida</h2>
+            <p class="text-gray-600 mb-6">
+                Este sistema requiere configurar Firebase para almacenar los datos. 
+                Siga estos pasos:
+            </p>
+            <ol class="list-decimal pl-5 space-y-3 text-gray-700 mb-6">
+                <li>Vaya a <a href="https://firebase.google.com" target="_blank" class="text-indigo-600 underline">firebase.google.com</a> y cree un proyecto gratuito</li>
+                <li>Active "Firestore Database" en modo de prueba</li>
+                <li>Obtenga la configuración de su proyecto (Config)</li>
+                <li>Reemplace las credenciales en el código HTML (líneas 17-23)</li>
+            </ol>
+            <div class="bg-gray-100 p-4 rounded-lg font-mono text-xs text-gray-600 mb-6">
+                const firebaseConfig = {<br>
+                &nbsp;&nbsp;apiKey: "su-api-key",<br>
+                &nbsp;&nbsp;authDomain: "su-proyecto.firebaseapp.com",<br>
+                &nbsp;&nbsp;projectId: "su-proyecto",<br>
+                &nbsp;&nbsp;...
+                }
+            </div>
+            <button onclick="cerrarSetupModal()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl hover:bg-indigo-700 transition">
+                Entendido
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA BANKS ---
+        const questionBanks = {
+            s1: [
+                "Mantengo la calma ante acontecimientos que escapan a mi control.",
+                "Mis emociones intensas (ira, tristeza, ansiedad) no nublan mi capacidad de juicio.",
+                "Mi felicidad depende principalmente de mi actitud interna, no de factores externos.",
+                "Reflexiono habitualmente sobre mis pensamientos y juicios para mantener la paz.",
+                "Encuentro satisfacción genuina en los placeres más sencillos de la vida.",
+                "Acepto con serenidad las dificultades y los reveses como parte natural de la existencia.",
+                "Mi paz interior se mantiene estable frente a las acciones o críticas de los demás.",
+                "Me enfoco activamente en cultivar mi carácter y mis virtudes personales.",
+                "Busco y protejo momentos de tranquilidad para liberarme de las preocupaciones.",
+                "Distingo con claridad entre los problemas que puedo solucionar y los que debo aceptar."
+            ],
+            s2: [
+                "Siento que estoy viviendo una vida auténtica y verdaderamente propia.",
+                "Experimento un sentido de propósito y dirección claro en mi vida.",
+                "La libertad de tener que elegir por mí mismo/a me genera energía y vitalidad.",
+                "Actúo bajo mis propios valores, incluso frente a las expectativas sociales.",
+                "Asumo la responsabilidad total de las decisiones que han dado forma a mi vida.",
+                "He encontrado formas de crear significado a través de mis acciones y compromisos.",
+                "Me siento conectado/a con proyectos o causas que trascienden mi interés personal.",
+                "Me muestro tal como soy, sin sentir que actúo un papel para ser aceptado/a.",
+                "Me mantengo comprometido/a con mi proyecto de vida a pesar de los obstáculos.",
+                "La conciencia de que mi tiempo es limitado me impulsa a vivir con plenitud."
+            ],
+            s3: [
+                "Me siento libre de la presión constante por ser productivo/a u optimizar mi tiempo.",
+                "Siento que mi valor como persona es independiente de mis logros o éxitos externos.",
+                "Percibo que mi actividad diaria aporta algo valioso a la comunidad o al mundo.",
+                "Puedo mostrar mi vulnerabilidad y dudas sin miedo a ser juzgado/a.",
+                "Mantengo límites claros y saludables entre mis obligaciones y mi vida personal.",
+                "Me permito disfrutar del ocio y del descanso sin sentir culpa o inquietud.",
+                "Encuentro un sentido profundo en las tareas que realizo cotidianamente.",
+                "Existe una coherencia total entre mi imagen pública y mi identidad privada.",
+                "Conservo mi energía mental frente a la velocidad y el exceso de información.",
+                "Busco una comprensión de mí mismo/a que integre cuerpo, mente y espíritu."
+            ],
+            s4: [
+                "Mis relaciones más cercanas son un refugio seguro donde puedo ser yo mismo/a.",
+                "Mis interacciones con los demás son profundas, honestas y significativas.",
+                "Me siento parte de una comunidad con la que comparto valores fundamentales.",
+                "Siento que mi entorno valora mi esencia humana por encima de mi utilidad.",
+                "Pido ayuda y muestro mi fragilidad ante los demás con naturalidad.",
+                "Participo en el cuidado mutuo, dando y recibiendo apoyo de forma equilibrada.",
+                "Mis vínculos se basan en la colaboración y no en la competencia o comparación.",
+                "Encuentro alegría y bienestar en el crecimiento y felicidad de las personas que amo.",
+                "Siento que mi voz y mis puntos de vista son escuchados y respetados.",
+                "Dedico tiempo y energía de alta calidad a cultivar mis afectos."
+            ]
+        };
+
+        const valueBank = [
+            { id: "libertad", name: "Libertad", desc: "Capacidad de elegir y actuar según valores propios" },
+            { id: "belleza", name: "Belleza", desc: "Conexión con la armonía, el asombro, el arte" },
+            { id: "dignidad", name: "Dignidad", desc: "Respeto inherente; no ser tratado como medio" },
+            { id: "justicia", name: "Justicia", desc: "Compromiso con la equidad y rectitud" },
+            { id: "verdad", name: "Verdad", desc: "Honestidad intelectual y búsqueda de realidad" },
+            { id: "amor", name: "Amor", desc: "Capacidad de cuidado, compasión y pertenencia" }
+        ];
+
+        const dimensionalLabels = {
+            s1: { name: "Serenidad y Fortaleza Interior", short: "Serenidad", concept: "Ataraxia" },
+            s2: { name: "Autenticidad y Sentido Vital", short: "Autenticidad", concept: "Existencialismo" },
+            s3: { name: "Integración y Resistencia", short: "Resistencia", concept: "Crítica" },
+            s4: { name: "Relacionalidad y Cuidado", short: "Relacionalidad", concept: "Ética del Vínculo" }
+        };
+
+        // Global vars
+        let allRecords = [];
+        let currentUserId = null;
+        let currentRadarChart = null;
+        let currentBarChart = null;
+
+        // --- USER FUNCTIONS ---
+
+        function renderInstrument() {
+            const container = document.getElementById('questions-container');
+            let html = '';
+
+            const sectionsData = [
+                { id: 's1', title: '1. Serenidad y Fortaleza Interior (Ataraxia)' },
+                { id: 's2', title: '2. Autenticidad y Sentido Vital (Existencialismo)' },
+                { id: 's3', title: '3. Integración y Resistencia (Crítica)' },
+                { id: 's4', title: '4. Relacionalidad y Cuidado (Ética del Vínculo)' }
+            ];
+
+            sectionsData.forEach((sec, secIdx) => {
+                html += `
+                <div class="mb-10 bg-gray-50/50 p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xl font-extrabold text-indigo-900 mb-6 flex items-center gap-3">
+                        <span class="bg-indigo-100 text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center text-sm">${sec.title.charAt(0)}</span>
+                        ${sec.title.substring(2)}
+                    </h3>
+                    <div class="space-y-4">`;
+
+                questionBanks[sec.id].forEach((q, qIdx) => {
+                    html += `
+                        <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-200 transition">
+                            <p class="font-medium text-gray-800 mb-4 text-base">${qIdx + 1}. ${q}</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition group focus-within:ring-2 focus-within:ring-indigo-500">
+                                    <input type="radio" required name="${sec.id}_q${qIdx}" value="1" class="w-4 h-4 text-indigo-600 mb-2 accent-indigo-600" onchange="updateProgress()">
+                                    <span class="text-sm text-gray-600 font-medium text-center">Nunca</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition group focus-within:ring-2 focus-within:ring-indigo-500">
+                                    <input type="radio" required name="${sec.id}_q${qIdx}" value="2" class="w-4 h-4 text-indigo-600 mb-2 accent-indigo-600" onchange="updateProgress()">
+                                    <span class="text-sm text-gray-600 font-medium text-center">A veces</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition group focus-within:ring-2 focus-within:ring-indigo-500">
+                                    <input type="radio" required name="${sec.id}_q${qIdx}" value="3" class="w-4 h-4 text-indigo-600 mb-2 accent-indigo-600" onchange="updateProgress()">
+                                    <span class="text-sm text-gray-600 font-medium text-center">Frecuent.</span>
+                                </label>
+                                <label class="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition group focus-within:ring-2 focus-within:ring-indigo-500">
+                                    <input type="radio" required name="${sec.id}_q${qIdx}" value="4" class="w-4 h-4 text-indigo-600 mb-2 accent-indigo-600" onchange="updateProgress()">
+                                    <span class="text-sm text-gray-600 font-medium text-center">Siempre</span>
+                                </label>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            });
+
+            // Section 5 - Values
+            html += `
+            <div class="mb-10 bg-indigo-50 p-6 md:p-8 rounded-3xl border border-indigo-100 shadow-sm">
+                <div class="mb-8">
+                    <h3 class="text-2xl font-extrabold text-indigo-900 mb-2">5. Brújula Existencial</h3>
+                    <p class="text-indigo-800/80">Indique de 1 a 10 la <strong>Importancia</strong> y <strong>Presencia Actual</strong> de cada valor.</p>
+                </div>
+                <div class="space-y-6">`;
+
+            valueBank.forEach((val, vIdx) => {
+                html += `
+                    <div class="bg-white p-6 rounded-2xl border border-indigo-100 shadow-sm">
+                        <div class="mb-4 border-b border-gray-100 pb-3">
+                            <h4 class="text-lg font-bold text-gray-900">${val.name}</h4>
+                            <p class="text-sm text-gray-500">${val.desc}</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10 px-2">
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-sm font-bold text-indigo-900">Importancia</label>
+                                    <span id="imp_val_${vIdx}" class="font-black text-lg text-indigo-600 bg-indigo-50 w-8 h-8 rounded-full flex items-center justify-center shadow-sm">5</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs text-gray-400 font-bold">1</span>
+                                    <input type="range" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" id="imp_${vIdx}" name="imp_${vIdx}" oninput="document.getElementById('imp_val_${vIdx}').innerText = this.value; updateProgress();">
+                                    <span class="text-xs text-gray-400 font-bold">10</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="text-sm font-bold text-emerald-900">Presencia Actual</label>
+                                    <span id="pres_val_${vIdx}" class="font-black text-lg text-emerald-600 bg-emerald-50 w-8 h-8 rounded-full flex items-center justify-center shadow-sm">5</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-xs text-gray-400 font-bold">1</span>
+                                    <input type="range" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" style="accent-color: #10b981;" id="pres_${vIdx}" name="pres_${vIdx}" oninput="document.getElementById('pres_val_${vIdx}').innerText = this.value; updateProgress();">
+                                    <span class="text-xs text-gray-400 font-bold">10</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+
+            // Section 6 - Hermeneutic
+            html += `
+            <div class="mb-4 bg-gray-900 p-6 md:p-8 rounded-3xl shadow-xl text-white">
+                <h3 class="text-2xl font-extrabold text-white mb-6">6. Cierre Hermenéutico</h3>
+                <div class="bg-gray-800 p-6 rounded-2xl border-l-4 border-indigo-500 mb-6 shadow-inner">
+                    <p class="text-base text-indigo-100 font-serif italic leading-relaxed">
+                        "Observe el valor con mayor brecha. Si este desequilibrio fuera un personaje de una obra que usted está escribiendo, ¿qué le diría sobre el camino que debe tomar?"
+                    </p>
+                </div>
+                <textarea id="s6_answer" required rows="5" class="w-full border-0 rounded-2xl p-5 bg-white text-gray-900 focus:ring-4 focus:ring-indigo-500/50 outline-none resize-none placeholder-gray-400 shadow-inner" placeholder="Escriba su reflexión..." oninput="updateProgress();"></textarea>
+            </div>`;
+
+            container.innerHTML = html;
+        }
+
+        function updateProgress() {
+            const form = document.getElementById('instrument-form');
+            if (!form) return;
+            
+            let answeredRadios = 0;
+            ['s1', 's2', 's3', 's4'].forEach(sec => {
+                for (let i = 0; i < 10; i++) {
+                    if (form.querySelector(`input[name="${sec}_q${i}"]:checked`)) answeredRadios++;
+                }
+            });
+            
+            const hermeneutic = document.getElementById('s6_answer')?.value?.trim();
+            const hermeneuticProgress = hermeneutic ? 1 : 0;
+            const progress = Math.round(((answeredRadios + hermeneuticProgress) / 41) * 100);
+            
+            document.getElementById('progress-bar').style.width = `${Math.min(progress, 100)}%`;
+            document.getElementById('progress-text').innerText = `${Math.min(progress, 100)}%`;
+        }
+
+        function iniciarTest() {
+            const name = document.getElementById('user-name').value.trim();
+            const age = document.getElementById('user-age').value.trim();
+            const prof = document.getElementById('user-prof').value.trim();
+            const consent = document.getElementById('user-consent').checked;
+
+            if (!name || !age || !prof || !consent) {
+                alert("Por favor, complete todos los campos requeridos y acepte los términos.");
+                return;
+            }
+
+            if (parseInt(age) < 18 || parseInt(age) > 120) {
+                alert("Por favor, ingrese una edad válida (18-120 años).");
+                return;
+            }
+
+            document.getElementById('step-registration').classList.add('hidden');
+            document.getElementById('step-instrument').classList.remove('hidden');
+            document.getElementById('progress-container').classList.remove('hidden');
+
+            renderInstrument();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function enviarResultados(event) {
+            event.preventDefault();
+            
+            // Validar que Firebase esté configurado
+            if (!window.db || document.querySelector('script[type="module"]')?.textContent?.includes('REEMPLAZAR')) {
+                alert('Error: Firebase no está configurado. Por favor configure la base de datos primero.');
+                mostrarSetupModal();
+                return;
+            }
+
+            const btn = document.getElementById('btn-enviar');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner w-5 h-5 border-2"></div> Enviando...';
+
+            document.getElementById('step-instrument').classList.add('hidden');
+            document.getElementById('step-loading').classList.remove('hidden');
+
+            try {
+                const form = event.target;
+                const { collection, addDoc } = window.firebaseCollections;
+                
+                // Generar código único de confirmación (6 caracteres alfanuméricos)
+                const confirmCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                
+                const currentData = {
+                    confirmCode: confirmCode,
+                    name: document.getElementById('user-name').value.trim(),
+                    age: parseInt(document.getElementById('user-age').value),
+                    prof: document.getElementById('user-prof').value.trim(),
+                    date: new Date().toISOString(),
+                    scores: {},
+                    valuesData: [],
+                    hermeneutic: document.getElementById('s6_answer').value.trim(),
+                    metrics: {},
+                    retroalimentado: false
+                };
+
+                // Calcular scores
+                let globalSum = 0;
+                ['s1', 's2', 's3', 's4'].forEach((sec) => {
+                    let secSum = 0;
+                    for (let q = 0; q < 10; q++) {
+                        secSum += parseInt(form.elements[`${sec}_q${q}`].value);
+                    }
+                    const secAvg = secSum / 10;
+                    currentData.scores[sec] = secAvg;
+                    globalSum += secAvg;
+                });
+                currentData.metrics.bienestarGlobal = globalSum / 4;
+
+                // Calcular valores
+                let teSum = 0;
+                let maxGap = -1;
+                let maxGapValue = '';
+
+                valueBank.forEach((val, i) => {
+                    const imp = parseInt(document.getElementById(`imp_${i}`).value);
+                    const pres = parseInt(document.getElementById(`pres_${i}`).value);
+                    const gap = Math.abs(imp - pres);
+
+                    currentData.valuesData.push({ name: val.name, imp, pres, gap });
+                    teSum += gap;
+                    if (gap > maxGap) {
+                        maxGap = gap;
+                        maxGapValue = val.name;
+                    }
+                });
+
+                currentData.metrics.tensionExistencial = teSum;
+                currentData.metrics.prioridadIntervencion = maxGapValue;
+
+                // Guardar en Firebase
+                const docRef = await addDoc(collection(window.db, "evaluaciones"), currentData);
+                
+                // Mostrar confirmación SIN resultados
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-thanks').classList.remove('hidden');
+                document.getElementById('confirm-code').innerText = confirmCode;
+                document.getElementById('progress-container').classList.add('hidden');
+                
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al enviar. Por favor intente nuevamente.");
+                document.getElementById('step-loading').classList.add('hidden');
+                document.getElementById('step-instrument').classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = '<span>Enviar a mi Consultante</span><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>';
+            }
+        }
+
+        // --- ADMIN FUNCTIONS ---
+
+        async function cargarDatosAdmin() {
+            if (!window.db) {
+                document.getElementById('firebase-status').className = 'bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4 flex items-center gap-3';
+                document.getElementById('status-dot').className = 'w-3 h-3 rounded-full bg-red-500';
+                document.getElementById('status-text').innerText = 'Error: Firebase no configurado';
+                mostrarSetupModal();
+                return;
+            }
+
+            try {
+                const { collection, getDocs, query, orderBy } = window.firebaseCollections;
+                const q = query(collection(window.db, "evaluaciones"), orderBy("date", "desc"));
+                const querySnapshot = await getDocs(q);
+                
+                allRecords = [];
+                querySnapshot.forEach((doc) => {
+                    allRecords.push({ id: doc.id, ...doc.data() });
+                });
+
+                document.getElementById('firebase-status').className = 'bg-emerald-900/30 border border-emerald-700 rounded-lg p-3 mb-4 flex items-center gap-3';
+                document.getElementById('status-dot').className = 'w-3 h-3 rounded-full bg-emerald-500';
+                document.getElementById('status-text').innerText = `Conectado | ${allRecords.length} expediente(s) encontrado(s)`;
+
+                renderizarListaUsuarios(allRecords);
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                document.getElementById('firebase-status').className = 'bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4 flex items-center gap-3';
+                document.getElementById('status-dot').className = 'w-3 h-3 rounded-full bg-red-500';
+                document.getElementById('status-text').innerText = 'Error de conexión: ' + error.message;
+            }
+        }
+
+        function renderizarListaUsuarios(records) {
+            document.getElementById('total-expedientes').innerText = records.length;
+            const listContainer = document.getElementById('admin-users-list');
+            listContainer.innerHTML = '';
+
+            if (records.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="p-6 text-center opacity-50">
+                        <p class="text-sm text-slate-300">No hay expedientes</p>
+                    </div>`;
+                return;
+            }
+
+            const ahora = new Date();
+            const hace24h = new Date(ahora - 24 * 60 * 60 * 1000);
+
+            records.forEach(rec => {
+                const d = new Date(rec.date);
+                const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                const esNuevo = d > hace24h;
+                const retroalimentado = rec.retroalimentado;
+
+                listContainer.innerHTML += `
+                    <button onclick="verUsuario('${rec.id}')" 
+                        class="w-full text-left p-3 rounded-xl hover:bg-slate-700/50 border transition user-btn group relative ${esNuevo ? 'new-record border-emerald-500/50' : 'border-transparent hover:border-slate-600'} ${retroalimentado ? 'opacity-60' : ''}" 
+                        id="btn-user-${rec.id}">
+                        ${esNuevo ? '<span class="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full" title="Nuevo"></span>' : ''}
+                        ${retroalimentado ? '<span class="absolute top-1 right-1 text-[8px] bg-slate-600 text-white px-1 rounded">R</span>' : ''}
+                        <div class="font-bold text-slate-200 text-sm truncate group-hover:text-white transition">${rec.name}</div>
+                        <div class="text-[10px] text-slate-500 mt-1 flex justify-between items-center">
+                            <span class="truncate pr-2 font-mono text-indigo-400">${rec.confirmCode}</span>
+                            <span class="shrink-0 bg-slate-800 px-2 py-0.5 rounded text-[10px] text-slate-400 border border-slate-700">${dateStr}</span>
+                        </div>
+                    </button>
+                `;
+            });
+        }
+
+        function filtrarUsuarios() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filterStatus = document.getElementById('filter-status').value;
+            const ahora = new Date();
+            const hace24h = new Date(ahora - 24 * 24 * 60 * 60 * 1000);
+            const hace7d = new Date(ahora - 7 * 24 * 60 * 60 * 1000);
+
+            let filtrados = allRecords.filter(rec => {
+                const matchName = rec.name.toLowerCase().includes(searchTerm);
+                const d = new Date(rec.date);
+                
+                let matchStatus = true;
+                if (filterStatus === 'new') matchStatus = d > hace24h;
+                else if (filterStatus === 'week') matchStatus = d > hace7d;
+                
+                return matchName && matchStatus;
+            });
+
+            renderizarListaUsuarios(filtrados);
+        }
+
+        function filtrarPorCodigo() {
+            const code = document.getElementById('search-code').value.toUpperCase();
+            if (!code) {
+                renderizarListaUsuarios(allRecords);
+                return;
+            }
+            
+            const filtrados = allRecords.filter(rec => rec.confirmCode?.includes(code));
+            renderizarListaUsuarios(filtrados);
+            
+            if (filtrados.length === 1) {
+                verUsuario(filtrados[0].id);
+            }
+        }
+
+        function verUsuario(id) {
+            const rec = allRecords.find(r => r.id === id);
+            if (!rec) return;
+
+            currentUserId = id;
+
+            // UI updates
+            document.querySelectorAll('.user-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-900/30', 'border-indigo-500/50');
+            });
+            document.getElementById(`btn-user-${id}`)?.classList.add('bg-indigo-900/30', 'border-indigo-500/50');
+
+            document.getElementById('admin-empty-state').classList.add('hidden');
+            document.getElementById('admin-dashboard').classList.remove('hidden');
+            document.getElementById('admin-dashboard').classList.add('flex');
+
+            // Fill data
+            document.getElementById('dash-name').innerText = rec.name;
+            document.getElementById('dash-age').innerText = rec.age;
+            document.getElementById('dash-prof').innerText = rec.prof;
+            document.getElementById('dash-date').innerText = new Date(rec.date).toLocaleString('es-ES');
+            document.getElementById('dash-code').innerText = `Código: ${rec.confirmCode}`;
+
+            const bg = rec.metrics?.bienestarGlobal || 0;
+            const te = rec.metrics?.tensionExistencial || 0;
+
+            document.getElementById('dash-bg').innerText = bg.toFixed(2);
+            document.getElementById('dash-te').innerText = te;
+            document.getElementById('dash-prioridad').innerText = rec.metrics?.prioridadIntervencion || 'N/A';
+            document.getElementById('dash-hermeneutic').innerText = rec.hermeneutic || 'Sin respuesta.';
+
+            const bgStatus = getBGStatus(bg);
+            const teStatus = getTEStatus(te);
+            
+            // Badges con colores de fondo
+            const bgBadgeColor = bg >= 3.5 ? 'bg-emerald-500/20 text-emerald-400' : bg >= 2.5 ? 'bg-lime-500/20 text-lime-400' : bg >= 1.5 ? 'bg-amber-500/20 text-amber-400' : 'bg-rose-500/20 text-rose-400';
+            const teBadgeColor = te <= 15 ? 'bg-emerald-500/20 text-emerald-400' : te <= 30 ? 'bg-amber-500/20 text-amber-400' : te <= 45 ? 'bg-orange-500/20 text-orange-400' : 'bg-rose-500/20 text-rose-400';
+            
+            document.getElementById('dash-bg-badge').innerHTML = `<span class="${bgBadgeColor} px-2 py-0.5 rounded-full">${bgStatus.label}</span>`;
+            document.getElementById('dash-te-badge').innerHTML = `<span class="${teBadgeColor} px-2 py-0.5 rounded-full">${teStatus.label}</span>`;
+
+            renderDimensionalAnalysis(rec);
+            renderValuesAnalysis(rec);
+            renderCharts(rec);
+            
+            // Update retroalimentado button
+            const btnRetro = document.getElementById('btn-retroalimentado');
+            if (rec.retroalimentado) {
+                btnRetro.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Retroalimentado';
+                btnRetro.classList.add('bg-slate-600');
+                btnRetro.classList.remove('bg-emerald-600');
+            } else {
+                btnRetro.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Marcar como Retroalimentado';
+                btnRetro.classList.remove('bg-slate-600');
+                btnRetro.classList.add('bg-emerald-600');
+            }
+        }
+
+        async function marcarRetroalimentado() {
+            if (!currentUserId) return;
+            
+            try {
+                const { doc, updateDoc } = window.firebaseCollections;
+                const userRef = doc(window.db, "evaluaciones", currentUserId);
+                await updateDoc(userRef, { retroalimentado: true });
+                
+                // Update local
+                const rec = allRecords.find(r => r.id === currentUserId);
+                if (rec) rec.retroalimentado = true;
+                
+                // Refresh UI
+                verUsuario(currentUserId);
+                filtrarUsuarios();
+            } catch (error) {
+                alert('Error al actualizar: ' + error.message);
+            }
+        }
+
+        async function eliminarExpediente() {
+            if (!currentUserId) return;
+            if (!confirm('¿Está seguro de eliminar este expediente permanentemente?')) return;
+            
+            try {
+                const { doc, deleteDoc } = window.firebaseCollections;
+                await deleteDoc(doc(window.db, "evaluaciones", currentUserId));
+                
+                allRecords = allRecords.filter(r => r.id !== currentUserId);
+                currentUserId = null;
+                
+                document.getElementById('admin-dashboard').classList.add('hidden');
+                document.getElementById('admin-dashboard').classList.remove('flex');
+                document.getElementById('admin-empty-state').classList.remove('hidden');
+                
+                filtrarUsuarios();
+            } catch (error) {
+                alert('Error al eliminar: ' + error.message);
+            }
+        }
+
+        function recargarDatos() {
+            cargarDatosAdmin();
+        }
+
+        function getBGStatus(value) {
+            if (value >= 3.5) return { label: 'Óptimo', color: 'text-emerald-400' };
+            if (value >= 2.5) return { label: 'Bueno', color: 'text-lime-400' };
+            if (value >= 1.5) return { label: 'Regular', color: 'text-amber-400' };
+            return { label: 'Bajo', color: 'text-rose-400' };
+        }
+
+        function getTEStatus(value) {
+            if (value <= 15) return { label: 'Baja', color: 'text-emerald-400' };
+            if (value <= 30) return { label: 'Moderada', color: 'text-amber-400' };
+            if (value <= 45) return { label: 'Alta', color: 'text-orange-400' };
+            return { label: 'Crítica', color: 'text-rose-400' };
+        }
+
+        function getDimensionalStatus(score) {
+            const pct = (score / 4) * 100;
+            if (pct >= 87.5) return { status: 'optimal', label: 'Óptimo', color: 'text-emerald-400', dot: 'status-optimal', interpretation: 'Desarrollo muy sólido' };
+            if (pct >= 62.5) return { status: 'good', label: 'Bueno', color: 'text-lime-400', dot: 'status-good', interpretation: 'Nivel adecuado' };
+            if (pct >= 37.5) return { status: 'warning', label: 'Regular', color: 'text-amber-400', dot: 'status-warning', interpretation: 'Requiere atención' };
+            return { status: 'alert', label: 'Bajo', color: 'text-rose-400', dot: 'status-alert', interpretation: 'Prioridad terapéutica' };
+        }
+
+        function renderDimensionalAnalysis(rec) {
+            const container = document.getElementById('dimensiones-cards');
+            container.innerHTML = '';
+            
+            // Encontrar mejor y peor dimensión para el insight
+            let mejorScore = -1, peorScore = 5;
+            let mejorDim = '', peorDim = '';
+
+            ['s1', 's2', 's3', 's4'].forEach(key => {
+                const score = rec.scores?.[key] || 0;
+                if (score > mejorScore) { mejorScore = score; mejorDim = key; }
+                if (score < peorScore) { peorScore = score; peorDim = key; }
+            });
+            
+            // Actualizar info en radar
+            const promedio = ((rec.scores?.s1 + rec.scores?.s2 + rec.scores?.s3 + rec.scores?.s4) / 4).toFixed(2);
+            document.getElementById('radar-promedio').textContent = promedio;
+            document.getElementById('radar-mejor').textContent = dimensionalLabels[mejorDim].short;
+
+            ['s1', 's2', 's3', 's4'].forEach(key => {
+                const score = rec.scores?.[key] || 0;
+                const pct = ((score / 4) * 100).toFixed(0);
+                const status = getDimensionalStatus(score);
+                const info = dimensionalLabels[key];
+                const isMejor = key === mejorDim;
+                const isPeor = key === peorDim;
+
+                container.innerHTML += `
+                    <div class="bg-slate-700/30 border ${isPeor ? 'border-rose-500/30' : isMejor ? 'border-emerald-500/30' : 'border-slate-600/30'} rounded-xl p-4 hover:bg-slate-700/50 transition">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h4 class="font-bold text-white flex items-center gap-2">
+                                    ${info.name}
+                                    ${isMejor ? '<span class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Fortaleza</span>' : ''}
+                                    ${isPeor ? '<span class="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded">A trabajar</span>' : ''}
+                                </h4>
+                                <p class="text-xs text-slate-400">${info.concept}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold ${status.color}">${score.toFixed(2)}</div>
+                                <div class="text-xs text-slate-500">de 4.00</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex-1 bg-slate-700 rounded-full h-2">
+                                <div class="${status.status === 'optimal' ? 'bg-emerald-500' : status.status === 'good' ? 'bg-lime-500' : status.status === 'warning' ? 'bg-amber-500' : 'bg-rose-500'} h-2 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                            </div>
+                            <span class="text-xs font-medium ${status.color} w-16 text-right">${status.label}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2 italic">${status.interpretation}</p>
+                    </div>
+                `;
+            });
+            
+            // Generar insight narrativo
+            generarInsightNarrativo(rec, mejorDim, peorDim, promedio);
+        }
+        
+        function generarInsightNarrativo(rec, mejorDim, peorDim, promedio) {
+            const mejorNombre = dimensionalLabels[mejorDim].name.toLowerCase();
+            const peorNombre = dimensionalLabels[peorDim].name.toLowerCase();
+            const prioridadValor = rec.metrics?.prioridadIntervencion || '';
+            const bg = rec.metrics?.bienestarGlobal || 0;
+            const te = rec.metrics?.tensionExistencial || 0;
+            
+            let narrativa = '';
+            
+            // Intro basada en bienestar global
+            if (bg >= 3.0) {
+                narrativa += `El consultante muestra un <strong>buen nivel de bienestar integral</strong> (${bg.toFixed(2)}/4.00), con una base sólida en la dimensión de <strong>${mejorNombre}</strong>. `;
+            } else if (bg >= 2.0) {
+                narrativa += `El consultante presenta un <strong>nivel moderado de bienestar</strong> (${bg.toFixed(2)}/4.00), con áreas de fortaleza identificadas y otras que requieren atención. `;
+            } else {
+                narrativa += `El consultante muestra un <strong>nivel de bienestar que requiere atención</strong> (${bg.toFixed(2)}/4.00). Es importante abordar esto con sensibilidad. `;
+            }
+            
+            // Tensión existencial
+            if (te <= 15) {
+                narrativa += `Sus valores están relativamente <strong>alineados</strong> (tensión baja de ${te} puntos), lo que indica coherencia entre lo que valora y su vida actual. `;
+            } else if (te <= 30) {
+                narrativa += `Existe una <strong>tensión moderada</strong> (${te} puntos) entre sus valores y su vida actual, lo cual representa una oportunidad de crecimiento. `;
+            } else {
+                narrativa += `Existe una <strong>alta tensión existencial</strong> (${te} puntos) que indica desalineación significativa entre lo que valora y su realidad actual. `;
+            }
+            
+            // Punto de partida para intervención
+            narrativa += `<br><br><strong>Punto de partida sugerido:</strong> Explorar la dimensión de <strong>${peorNombre}</strong>, particularmente en relación con el valor de <strong>${prioridadValor}</strong>, que muestra la mayor brecha entre importancia y presencia en su vida.`;
+            
+            document.getElementById('insight-narrativo').innerHTML = narrativa;
+            
+            // Tags
+            const tags = [
+                { text: dimensionalLabels[mejorDim].short + ' fuerte', color: 'bg-emerald-500/20 text-emerald-400' },
+                { text: dimensionalLabels[peorDim].short + ' a desarrollar', color: 'bg-amber-500/20 text-amber-400' },
+                { text: 'Prioridad: ' + prioridadValor, color: 'bg-rose-500/20 text-rose-400' }
+            ];
+            
+            document.getElementById('insight-tags').innerHTML = tags.map(t => 
+                `<span class="${t.color} text-xs px-3 py-1 rounded-full font-medium">${t.text}</span>`
+            ).join('');
+        }
+
+        function renderValuesAnalysis(rec) {
+            const tbody = document.getElementById('values-analysis-body');
+            const prioritariosContainer = document.getElementById('valores-prioritarios');
+            tbody.innerHTML = '';
+            prioritariosContainer.innerHTML = '';
+
+            const sortedValues = [...(rec.valuesData || [])].sort((a, b) => b.gap - a.gap);
+            const maxGap = sortedValues[0]?.gap || 1;
+
+            // Top 3 valores prioritarios como cards
+            sortedValues.slice(0, 3).forEach((v, idx) => {
+                const prioridad = idx === 0 ? 'Alta' : 'Media';
+                const colorClass = idx === 0 ? 'from-rose-500/20 to-orange-500/20 border-rose-500/30' : 'from-amber-500/20 to-yellow-500/20 border-amber-500/30';
+                const icono = idx === 0 ? '🔥' : idx === 1 ? '⚡' : '💡';
+                
+                prioritariosContainer.innerHTML += `
+                    <div class="bg-gradient-to-br ${colorClass} border rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-2xl">${icono}</span>
+                            <span class="text-xs font-bold ${idx === 0 ? 'text-rose-400' : 'text-amber-400'} bg-black/20 px-2 py-1 rounded">Prioridad ${prioridad}</span>
+                        </div>
+                        <h4 class="font-bold text-white text-lg mb-1">${v.name}</h4>
+                        <div class="flex items-center gap-3 text-sm mb-2">
+                            <span class="text-slate-400">Importancia: <span class="text-indigo-400 font-bold">${v.imp}</span></span>
+                            <span class="text-slate-500">|</span>
+                            <span class="text-slate-400">Presencia: <span class="text-emerald-400 font-bold">${v.pres}</span></span>
+                        </div>
+                        <div class="bg-black/20 rounded-lg p-2">
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Brecha</span>
+                                <span class="${v.gap >= 5 ? 'text-rose-400' : 'text-amber-400'} font-bold">${v.gap} puntos</span>
+                            </div>
+                            <div class="w-full bg-slate-700 rounded-full h-2">
+                                <div class="${v.gap >= 5 ? 'bg-rose-500' : 'bg-amber-500'} h-2 rounded-full" style="width: ${(v.gap / 9) * 100}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Tabla completa
+            sortedValues.forEach((v, idx) => {
+                const isPriority = idx === 0;
+                const estadoClass = v.gap >= 5 ? 'bg-rose-500/10 text-rose-400' : v.gap >= 3 ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400';
+                const estadoText = v.gap >= 5 ? 'Alta brecha' : v.gap >= 3 ? 'Brecha media' : 'Equilibrado';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-700/30 transition ${isPriority ? 'bg-rose-500/5' : ''}">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                                ${isPriority ? '<span class="text-rose-400">★</span>' : ''}
+                                <span class="font-medium text-white">${v.name}</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 font-bold">${v.imp}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 font-bold">${v.pres}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="font-bold ${v.gap >= 5 ? 'text-rose-400' : v.gap >= 3 ? 'text-amber-400' : 'text-emerald-400'}">${v.gap}</span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="text-xs px-2 py-1 rounded-full ${estadoClass}">${estadoText}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderCharts(rec) {
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = 'ui-sans-serif, system-ui, sans-serif';
+
+            if (currentRadarChart) currentRadarChart.destroy();
+            if (currentBarChart) currentBarChart.destroy();
+
+            // Radar
+            const ctxRadar = document.getElementById('radarChart').getContext('2d');
+            currentRadarChart = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: ['Serenidad', 'Autenticidad', 'Resistencia', 'Relacionalidad'],
+                    datasets: [
+                        {
+                            label: 'Óptimo',
+                            data: [3.5, 3.5, 3.5, 3.5],
+                            backgroundColor: 'transparent',
+                            borderColor: 'rgba(148, 163, 184, 0.3)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            order: 2
+                        },
+                        {
+                            label: 'Actual',
+                            data: [rec.scores?.s1 || 0, rec.scores?.s2 || 0, rec.scores?.s3 || 0, rec.scores?.s4 || 0],
+                            backgroundColor: 'rgba(99, 102, 241, 0.4)',
+                            borderColor: '#818cf8',
+                            borderWidth: 2,
+                            pointBackgroundColor: '#1e293b',
+                            pointBorderColor: '#818cf8',
+                            pointRadius: 4,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            min: 1,
+                            max: 4,
+                            ticks: { stepSize: 1, backdropColor: 'transparent' },
+                            grid: { color: 'rgba(51, 65, 85, 0.5)' },
+                            pointLabels: { color: '#cbd5e1', font: { size: 11, weight: 'bold' } }
+                        }
+                    },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } }
+                }
+            });
+
+            // Bar chart
+            const ctxBar = document.getElementById('barChart').getContext('2d');
+            const values = rec.valuesData || [];
+            
+            currentBarChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: values.map(v => v.name),
+                    datasets: [
+                        {
+                            label: 'Brecha',
+                            data: values.map(v => v.gap),
+                            type: 'line',
+                            borderColor: '#ef4444',
+                            backgroundColor: '#ef4444',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            yAxisID: 'y1',
+                            order: 0
+                        },
+                        {
+                            label: 'Importancia',
+                            data: values.map(v => v.imp),
+                            backgroundColor: '#4f46e5',
+                            borderRadius: 4,
+                            order: 1
+                        },
+                        {
+                            label: 'Presencia',
+                            data: values.map(v => v.pres),
+                            backgroundColor: '#10b981',
+                            borderRadius: 4,
+                            order: 2
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, max: 10, grid: { color: 'rgba(51, 65, 85, 0.4)' } },
+                        y1: { beginAtZero: true, max: 9, position: 'right', grid: { display: false }, ticks: { color: '#ef4444' } },
+                        x: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { size: 10 } } }
+                    },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 6, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        function toggleFormulas() {
+            const content = document.getElementById('formulas-content');
+            const arrow = document.getElementById('formula-arrow');
+            content.classList.toggle('hidden');
+            arrow.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+        
+        function toggleInterpretationGuide() {
+            const content = document.getElementById('interpretation-guide');
+            const arrow = document.getElementById('guide-arrow');
+            content.classList.toggle('hidden');
+            arrow.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+
+        async function exportarTodosDatos() {
+            if (allRecords.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+
+            const dataStr = JSON.stringify(allRecords, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `IBFI_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportarUsuarioActual(format) {
+            if (!currentUserId) return;
+            const rec = allRecords.find(r => r.id === currentUserId);
+            if (!rec) return;
+
+            if (format === 'pdf') {
+                generarPDF(rec);
+            }
+        }
+
+        function generarPDF(rec) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.text('IBFI-C Pro - Informe Confidencial', 20, 20);
+            
+            doc.setFontSize(11);
+            doc.text(`Paciente: ${rec.name}`, 20, 35);
+            doc.text(`Edad: ${rec.age} años | Ocupación: ${rec.prof}`, 20, 42);
+            doc.text(`Fecha evaluación: ${new Date(rec.date).toLocaleString('es-ES')}`, 20, 49);
+            doc.text(`Código: ${rec.confirmCode}`, 20, 56);
+            
+            doc.setFontSize(13);
+            doc.text('Métricas Globales', 20, 70);
+            doc.setFontSize(10);
+            doc.text(`Bienestar Global: ${rec.metrics?.bienestarGlobal?.toFixed(2)}/4.00`, 20, 78);
+            doc.text(`Tensión Existencial: ${rec.metrics?.tensionExistencial}/54 pts`, 20, 84);
+            doc.text(`Prioridad: ${rec.metrics?.prioridadIntervencion}`, 20, 90);
+            
+            doc.setFontSize(13);
+            doc.text('Dimensiones', 20, 105);
+            doc.setFontSize(9);
+            let y = 112;
+            Object.entries(rec.scores || {}).forEach(([key, val]) => {
+                doc.text(`${dimensionalLabels[key].short}: ${val.toFixed(2)}`, 20, y);
+                y += 6;
+            });
+            
+            doc.setFontSize(13);
+            doc.text('Valores - Brechas', 20, 145);
+            doc.setFontSize(8);
+            y = 152;
+            (rec.valuesData || []).forEach(v => {
+                if (y > 270) { doc.addPage(); y = 20; }
+                doc.text(`${v.name}: Imp=${v.imp} Pres=${v.pres} Gap=${v.gap}`, 20, y);
+                y += 5;
+            });
+            
+            if (y > 220) { doc.addPage(); y = 20; }
+            doc.setFontSize(13);
+            doc.text('Cierre Hermenéutico', 20, y + 10);
+            doc.setFontSize(9);
+            const splitText = doc.splitTextToSize(rec.hermeneutic || 'Sin respuesta.', 170);
+            doc.text(splitText, 20, y + 18);
+            
+            doc.save(`IBFI_${rec.name.replace(/\s+/g, '_')}_${rec.confirmCode}.pdf`);
+        }
+
+        function abrirAdmin() {
+            const pwd = prompt("Contraseña de acceso:");
+            // 🔒 CONTRASEÑA DEL PANEL ADMIN - Cambiar aquí si es necesario
+            if (pwd === "IBFI-Pro-2026!" || pwd === "ElEscuchante#99") {
+                document.getElementById('app-container-wrapper').classList.add('hidden');
+                document.getElementById('admin-panel').classList.remove('hidden');
+                document.body.classList.remove('bg-gray-50');
+                document.body.classList.add('bg-slate-900');
+                cargarDatosAdmin();
+            } else if (pwd) {
+                alert("Contraseña incorrecta.");
+            }
+        }
+
+        function cerrarAdmin() {
+            document.getElementById('admin-panel').classList.add('hidden');
+            document.getElementById('app-container-wrapper').classList.remove('hidden');
+            document.body.classList.add('bg-gray-50');
+            document.body.classList.remove('bg-slate-900');
+            location.reload();
+        }
+
+        function mostrarSetupModal() {
+            document.getElementById('setup-modal').classList.remove('hidden');
+        }
+
+        function cerrarSetupModal() {
+            document.getElementById('setup-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
